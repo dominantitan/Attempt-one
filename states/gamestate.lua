@@ -46,4 +46,11 @@ function gamestate.keypressed(key)
     end
 end
 
+-- Handle mouse press for current state
+function gamestate.mousepressed(x, y, button)
+    if gamestate.current and gamestate.current.mousepressed then
+        gamestate.current:mousepressed(x, y, button)
+    end
+end
+
 return gamestate

@@ -48,16 +48,18 @@ local gamestate = require("states/gamestate")
 local gameplay = require("states/gameplay")
 local inventory = require("states/inventory")
 local shop = require("states/shop")
+local hunting = require("states/hunting")
 
 gamestate.register("gameplay", gameplay)
 gamestate.register("inventory", inventory)
 gamestate.register("shop", shop)
+gamestate.register("hunting", hunting)
 
 -- Core systems
 local worldSystem = require("systems/world")
 local playerSystem = require("systems/player")
 local farmingSystem = require("systems/farming")
-local huntingSystem = require("systems/hunting")
+-- local huntingSystem = require("systems/hunting") -- DISABLED: Using NEW states/hunting.lua instead
 local daynightSystem = require("systems/daynight")
 local audioSystem = require("systems/audio")
 local foragingSystem = require("systems/foraging")
@@ -120,7 +122,7 @@ function love.load()
     worldSystem.load()
     playerSystem.load()
     farmingSystem.load()
-    huntingSystem.load()
+    -- huntingSystem.load() -- DISABLED: Using NEW states/hunting.lua instead
     daynightSystem.load()
     audioSystem.load()
     foragingSystem.load()
@@ -210,21 +212,15 @@ function love.draw()
     -- Draw UI overlay
     love.graphics.setColor(1, 1, 1)
     
-    -- Clean UI panel at top-right (less intrusive)
+    -- Clean UI panel at top-right (essential info only)
     local rightX = love.graphics.getWidth() - 180
     love.graphics.print("💰 $" .. playerEntity.inventory.money, rightX, 10)
     love.graphics.print("❤️  " .. math.floor(playerEntity.health) .. "/" .. playerEntity.maxHealth, rightX, 30)
     love.graphics.print("🕐 " .. daynightSystem.getTimeString(), rightX, 50)
     
-    -- Compact inventory display (top-left, but cleaner)
-    love.graphics.setColor(0.9, 0.9, 0.9)
-    love.graphics.print("Inventory:", 10, 10)
-    local yOffset = 25
-    for _, item in ipairs(playerEntity.inventory.items) do
-        love.graphics.print(item.quantity .. "x " .. item.type, 10, yOffset)
-        yOffset = yOffset + 15
-        if yOffset > 100 then break end -- Limit display to not overlap farm
-    end
+    -- Inventory hint (press I to open)
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("Press [I] for inventory", 10, 10)
     
     -- Draw debug info (toggle with F3)
     if Game.debug then
@@ -269,9 +265,8 @@ function love.keyreleased(key)
 end
 
 function love.mousepressed(x, y, button)
-    if gamestate.current and gamestate.current.mousepressed then
-        gamestate.current:mousepressed(x, y, button)
-    end
+    -- Pass to gamestate system
+    gamestate.mousepressed(x, y, button)
 end
 
 function love.mousereleased(x, y, button)

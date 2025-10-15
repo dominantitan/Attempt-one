@@ -20,6 +20,13 @@ shop.items = {
     {name = "Bread", type = "bread", price = 6, sellPrice = 1, description = "Restores hunger"},
     {name = "Canned Beans", type = "beans", price = 10, sellPrice = 2, description = "Restores hunger and health"},
     
+    -- HUNTING EQUIPMENT (New!)
+    {name = "Arrows (10x)", type = "arrows", price = 15, sellPrice = 1, description = "Ammo for bow"},
+    {name = "Rifle", type = "rifle_weapon", price = 200, sellPrice = 50, description = "Powerful hunting rifle (one-time purchase)"},
+    {name = "Rifle Bullets (10x)", type = "bullets", price = 25, sellPrice = 2, description = "Ammo for rifle"},
+    {name = "Shotgun", type = "shotgun_weapon", price = 350, sellPrice = 80, description = "Spread shot hunter (one-time purchase)"},
+    {name = "Shotgun Shells (10x)", type = "shells", price = 30, sellPrice = 2, description = "Ammo for shotgun"},
+    
     --[[ FUTURE FEATURES - COMMENTED OUT FOR MVP
     {name = "Soil Fertilizer", type = "fertilizer", price = 30, sellPrice = 3, description = "Improves soil quality"},
     {name = "Pesticide", type = "pesticide", price = 35, sellPrice = 4, description = "Reduces pest damage"},
@@ -59,10 +66,12 @@ shop.buyPrices = {
 
 shop.selectedItem = 1
 shop.mode = "buy" -- "buy" or "sell"
+shop.scrollOffset = 0 -- For scrolling through long lists
 
 function shop:enter()
     print("💰 Entering Shop")
-    print("� Buy seeds and supplies, sell your harvest!")
+    print("📦 Buy seeds and supplies, sell your harvest!")
+    shop.scrollOffset = 0 -- Reset scroll on entry
 end
 
 function shop:update(dt)
@@ -98,8 +107,14 @@ function shop:draw()
         lg.setColor(1, 1, 1)
         lg.print("Items for Sale (Use UP/DOWN, ENTER to buy):", 60, 190)
         
-        for i, item in ipairs(shop.items) do
-            local y = 220 + (i - 1) * 25
+        -- Scrolling viewport: show max 8 items at a time
+        local maxVisibleItems = 8
+        local startIndex = shop.scrollOffset + 1
+        local endIndex = math.min(startIndex + maxVisibleItems - 1, #shop.items)
+        
+        for i = startIndex, endIndex do
+            local item = shop.items[i]
+            local y = 220 + (i - startIndex) * 25
             local color = i == shop.selectedItem and {1, 1, 0.5} or {0.8, 0.8, 0.8}
             lg.setColor(color[1], color[2], color[3])
             
@@ -109,6 +124,16 @@ function shop:draw()
             lg.print(string.format("%s - $%d%s", item.name, item.price, affordText), 80, y)
             lg.setColor(0.6, 0.6, 0.6)
             lg.print(item.description, 300, y)
+        end
+        
+        -- Scroll indicators
+        if shop.scrollOffset > 0 then
+            lg.setColor(1, 1, 0.5)
+            lg.print("▲ More items above", 80, 420)
+        end
+        if endIndex < #shop.items then
+            lg.setColor(1, 1, 0.5)
+            lg.print("▼ More items below", 300, 420)
         end
         
     else -- sell mode
@@ -168,8 +193,17 @@ function shop:keypressed(key)
     elseif shop.mode == "buy" then
         if key == "up" then
             shop.selectedItem = math.max(1, shop.selectedItem - 1)
+            -- Auto-scroll when selection goes above visible area
+            if shop.selectedItem <= shop.scrollOffset then
+                shop.scrollOffset = math.max(0, shop.selectedItem - 1)
+            end
         elseif key == "down" then
             shop.selectedItem = math.min(#shop.items, shop.selectedItem + 1)
+            -- Auto-scroll when selection goes below visible area
+            local maxVisibleItems = 8
+            if shop.selectedItem > shop.scrollOffset + maxVisibleItems then
+                shop.scrollOffset = shop.selectedItem - maxVisibleItems
+            end
         elseif key == "return" or key == "space" then
             shop:buyItem()
         end

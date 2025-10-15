@@ -50,12 +50,13 @@ function gameplay:drawInteractionPrompts()
         love.graphics.print(nearExit.prompt, 10, love.graphics.getHeight() - 60)
     end
     
-    -- Check for hunting zones (main world only)
-    local nearHuntingZone = areas.getPlayerNearHuntingZone(playerSystem.x, playerSystem.y)
-    if nearHuntingZone then
-        love.graphics.setColor(0.8, 1, 0.8)
-        love.graphics.print("Hunting Zone: " .. nearHuntingZone.name, 10, love.graphics.getHeight() - 40)
-        love.graphics.print("Press ENTER to enter hunting area", 10, love.graphics.getHeight() - 20)
+    -- Check for hunting zones (circular areas on map)
+    if currentArea.type == "overworld" and currentArea.huntingZones then
+        local nearHuntingZone = areas.getPlayerNearHuntingZone(playerSystem.x, playerSystem.y)
+        if nearHuntingZone then
+            love.graphics.setColor(0.9, 0.7, 0.3)
+            love.graphics.print("🎯 " .. nearHuntingZone.name .. ": Press ENTER to hunt", 10, love.graphics.getHeight() - 20)
+        end
     end
     
     -- Check for main world structures (railway station, etc.)
@@ -160,10 +161,12 @@ function gameplay:keypressed(key)
         return
     end
     
-    -- Hunting zone entries (main world only)
+    -- Hunting zone entries (main world only) - Use NEW first-person hunting!
     local nearHuntingZone = areas.getPlayerNearHuntingZone(playerSystem.x, playerSystem.y)
     if key == "return" and nearHuntingZone then
-        areas.transitionToArea(nearHuntingZone.target)
+        print("🎯 Entering " .. nearHuntingZone.name .. " - First-Person Hunting!")
+        -- Go to NEW first-person hunting state (NOT old hunting_area)
+        gamestate.switch("hunting")
         return
     end
     
@@ -214,12 +217,20 @@ function gameplay:keypressed(key)
                 gamestate.switch("shop")
             elseif key == "e" and nearStructure.interaction == "railway_shop" then
                 gameplay:examineRailwayStation(nearStructure)
-            elseif key == "h" then
-                gameplay:huntWorldAnimals(playerSystem.x, playerSystem.y)
             end
-        elseif key == "h" then
-            -- Hunt world animals anywhere
-            gameplay:huntWorldAnimals(playerSystem.x, playerSystem.y)
+        elseif key == "return" then
+            -- Check if near hunting zone - go directly to NEW hunting state
+            -- Do NOT use areas.transitionToArea - go straight to hunting state!
+            local nearHuntingZone = areas.getPlayerNearHuntingZone(playerSystem.x, playerSystem.y)
+            if nearHuntingZone then
+                print("🎯 Entering " .. nearHuntingZone.name .. " - First-Person Hunting!")
+                -- Switch directly to NEW first-person hunting state (bypasses area system)
+                local gamestate = require("states/gamestate")
+                gamestate.switch("hunting")
+                return -- Important: Don't let areas.lua handle this
+            else
+                print("⚠️  Find a hunting zone (circular areas) to hunt!")
+            end
         elseif key == "r" then
             -- Try to forage wild crops
             gameplay:forageCrop(playerSystem.x, playerSystem.y)

@@ -31,11 +31,15 @@ function player.load()
     -- Give player LIMITED starting items (forces hunting/foraging early)
     player.addItem("seeds", 3)  -- Only 3 seeds (was 10) - can't rely on farming alone!
     player.addItem("water", 2)  -- Only 2 water (was 5) - must get from pond!
+    player.addItem("arrows", 10) -- Starting bow arrows for hunting
     player.inventory.money = 30 -- Less starting money (was 50) - harder start
     --[[ HARDCORE MODE: player.inventory.money = 20 -- Very small starting amount --]]
     
-    print("🎒 Starting with 3 seeds, 2 water, and $30")
-    print("⚠️  Limited resources - consider hunting or foraging!")
+    -- Player starts with ONLY the bow (weapons are one-time purchases)
+    player.addItem("bow_weapon", 1) -- Everyone starts with a bow
+    
+    print("🎒 Starting with bow, 10 arrows, 3 seeds, 2 water, and $30")
+    print("⚠️  Limited resources - buy ammo to hunt, or guns for better hunting!")
 end
 
 function player.update(dt)
