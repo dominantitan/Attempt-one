@@ -112,11 +112,8 @@ function gameplay:drawInteractionPrompts()
         end
     end
     
-    -- Area-specific prompts
-    if currentArea.type == "hunting_area" then
-        love.graphics.setColor(1, 0.6, 0.6)
-        love.graphics.print("Press H to hunt animals in this area", 10, love.graphics.getHeight() - 100)
-    end
+    -- Area-specific prompts removed (old hunting_area system disabled)
+    -- NEW hunting uses circular zones with ENTER key instead
     
     -- Always show movement controls
     love.graphics.setColor(0.7, 0.7, 0.7)
@@ -189,11 +186,8 @@ function gameplay:keypressed(key)
         end
     end
     
-    -- Hunting area actions
-    if currentArea.type == "hunting_area" and key == "h" then
-        gameplay:huntInCurrentArea()
-        return
-    end
+    -- OLD hunting_area actions REMOVED (use circular hunting zones instead)
+    -- Press ENTER at hunting zones (Northwestern Woods, etc.) to hunt
     
     -- Main world interactions (legacy support for existing systems)
     if currentArea.type == "overworld" then
@@ -325,6 +319,7 @@ function gameplay:exitHuntingZone(zoneName)
     worldSystem.exitHuntingZone(zoneName)
 end
 
+--[[ OLD HUNTING SYSTEM FUNCTIONS - DISABLED (Using NEW states/hunting.lua first-person system)
 function gameplay:huntInActiveZone(zone, zoneName)
     local playerSystem = require("systems/player")
     local playerEntity = require("entities/player")
@@ -363,7 +358,9 @@ function gameplay:huntInActiveZone(zone, zoneName)
         print("🔍 No animals nearby to hunt in this area")
     end
 end
+--]]
 
+--[[ OLD HUNTING FUNCTION - DISABLED
 function gameplay:huntWorldAnimals(playerX, playerY)
     local worldSystem = require("systems/world")
     local playerEntity = require("entities/player")
@@ -398,6 +395,7 @@ function gameplay:huntWorldAnimals(playerX, playerY)
         print("🔍 No wild animals nearby. Try entering a hunting zone for better luck!")
     end
 end
+--]]
 
 -- New area-specific functions
 
@@ -486,6 +484,7 @@ function gameplay:huntInCurrentArea()
         print("🔍 No animals nearby. Move around the hunting area to find prey")
     end
 end
+--]] -- End of OLD HUNTING FUNCTIONS block
 
 function gameplay:tradeAtRailwayStation(structure)
     if structure.shopkeeper then

@@ -1,8 +1,8 @@
 # Current Game State & Next Steps
 
-**Last Updated:** October 14, 2025  
+**Last Updated:** October 15, 2025  
 **Version:** MVP (Minimal Viable Product)  
-**Status:** Core systems working, ready for feature expansion
+**Status:** Core systems working, hunting system 90% complete (has re-entry bug)
 
 ---
 
@@ -33,16 +33,26 @@
 - Seeds: 3 carrot seeds
 - Water: 2 buckets
 
+### Hunting System (90% Complete) ⚠️
+- [x] **First-person DOOM-style hunting** - Complete with mouse aiming, crosshair
+- [x] **3 weapons** - Bow (free), Rifle ($200), Shotgun ($350)
+- [x] **Limited ammo** - Arrows $15/10, Bullets $25/10, Shells $30/10
+- [x] **4 animal types** - Rabbit $15, Deer $30, Boar $50, Tiger $100 (fear mechanic)
+- [x] **Zone-based hunting** - 3 circular zones on map with prompts
+- [x] **180-second sessions** - Timed hunting with score tracking
+- [x] **Shop integration** - Buy weapons/ammo, sell meat
+- [ ] **RE-ENTRY BUG** - Can't enter hunting after first session (CRITICAL)
+- [ ] **Shop scrolling** - UI overlaps, needs testing
+
 ---
 
 ## ❌ What's Missing
 
 ### Critical (Blocks Gameplay)
-- [ ] **Hunting mechanic** - Economy balanced for it, but no implementation
-  - Need: "Press H to hunt" prompt near animals
-  - Need: Success/fail chance based on animal type
-  - Need: Drop meat items on success
-  - Prices ready: Rabbit $15, Deer $30, Boar $50, Tiger $100
+- [ ] **Hunting re-entry bug** - Player can't enter hunting zones after first visit
+  - Root cause: State management or validation issue
+  - Fix attempted: Moved hunting.active flag after validation
+  - Status: Needs debugging and testing
 
 - [ ] **Foraging visibility** - Items spawn but not visible
   - Need: Either show items on ground OR show prompt when near

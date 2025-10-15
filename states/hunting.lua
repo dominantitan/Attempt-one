@@ -131,7 +131,7 @@ hunting.projectiles = {}
 
 function hunting:enter(fromState, entryPoint)
     print("🎯 Entering HUNTING MODE")
-    hunting.active = true
+    -- DON'T set active=true yet! Wait until all validation passes
     hunting.timeRemaining = 180
     hunting.score = 0
     hunting.kills = 0
@@ -183,7 +183,6 @@ function hunting:enter(fromState, entryPoint)
         print("❌ You don't own any weapons! Buy a weapon from the shop first.")
         local gamestate = require("states/gamestate")
         gamestate.switch("gameplay")
-        hunting.active = false -- CRITICAL: Reset active flag before exiting
         return
     end
     
@@ -192,9 +191,11 @@ function hunting:enter(fromState, entryPoint)
         print("❌ No ammo! Buy arrows/bullets/shells from the shop.")
         local gamestate = require("states/gamestate")
         gamestate.switch("gameplay")
-        hunting.active = false -- CRITICAL: Reset active flag before exiting
         return
     end
+    
+    -- ALL VALIDATION PASSED - Now activate hunting mode!
+    hunting.active = true
     
     -- Show mouse cursor for aiming
     love.mouse.setVisible(true)
