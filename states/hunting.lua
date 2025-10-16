@@ -10,6 +10,12 @@ hunting.animals = {}
 hunting.score = 0
 hunting.kills = 0
 hunting.shots = 0
+hunting.currentArea = nil -- Track which hunting area we're in
+
+-- Tiger encounter tracking (blocks areas until next day)
+-- Format: {areaId = dayNumber} - if tiger spawned in area on that day, area is blocked
+if not Game then Game = {} end
+if not Game.tigerBlockedAreas then Game.tigerBlockedAreas = {} end
 
 -- Player weapon state
 hunting.currentWeapon = "bow" -- "bow", "rifle", "shotgun"
@@ -71,8 +77,9 @@ hunting.animalTypes = {
     rabbit = {
         name = "Rabbit",
         spawnChance = 0.5, -- 50% of spawns
-        health = 100,
+        maxHealth = 50, -- One-shot with bow (50 damage)
         speed = 150, -- pixels per second
+        fleeSpeed = 300, -- Speed when wounded and fleeing
         size = 40,
         meatValue = 15,
         meatCount = 1,
@@ -85,8 +92,9 @@ hunting.animalTypes = {
     deer = {
         name = "Deer",
         spawnChance = 0.3,
-        health = 100,
+        maxHealth = 150, -- Takes 3 bow shots or 2 rifle shots
         speed = 80,
+        fleeSpeed = 200,
         size = 80,
         meatValue = 30,
         meatCount = 2,
@@ -99,8 +107,9 @@ hunting.animalTypes = {
     boar = {
         name = "Boar",
         spawnChance = 0.15,
-        health = 150,
-        speed = 200,
+        maxHealth = 250, -- Takes 5 bow shots or 3 rifle shots
+        speed = 100,
+        fleeSpeed = 180,
         size = 60,
         meatValue = 50,
         meatCount = 3,
@@ -112,14 +121,16 @@ hunting.animalTypes = {
     },
     tiger = {
         name = "Tiger",
-        spawnChance = 0.05, -- rare!
-        health = 200,
+        spawnChance = 0.95, -- TEMP: 95% for testing (normally 0.05)
+        maxHealth = 500, -- Very tough! Takes 10 bow shots or 6 rifle shots
         speed = 120,
+        attackSpeed = 250, -- Speed when attacking player (when provoked)
         size = 100,
         meatValue = 100,
         meatCount = 5,
         headshotBonus = 2,
-        behavior = "stalk",
+        behavior = "passive", -- PASSIVE: Doesn't move unless provoked!
+        dangerous = true, -- This tiger attacks when shot!
         hideTime = {min = 5, max = 10},
         showTime = {min = 3, max = 6},
         audioRadius = 200
@@ -130,8 +141,21 @@ hunting.animalTypes = {
 hunting.projectiles = {}
 
 function hunting:enter(fromState, entryPoint)
-    print("🎯 Entering HUNTING MODE")
-    -- DON'T set active=true yet! Wait until all validation passes
+    print("═══════════════════════════════════════════════════════════")
+    print("🎯 ENTERING HUNTING MODE (Attempt #" .. (hunting.entryCount or 0) + 1 .. ")")
+    print("═══════════════════════════════════════════════════════════")
+    print("🔍 DEBUG: hunting.active before reset = " .. tostring(hunting.active))
+    print("🔍 DEBUG: fromState = " .. tostring(fromState))
+    
+    -- Track which hunting area we entered from
+    -- fromState is the zone ID when called from gameplay (e.g., "hunting_northwest")
+    hunting.currentArea = fromState or entryPoint or "unknown"
+    print("🗺️  Entered hunting area: " .. hunting.currentArea)
+    
+    -- Track entry attempts
+    hunting.entryCount = (hunting.entryCount or 0) + 1
+    
+    -- Reset hunting state
     hunting.timeRemaining = 180
     hunting.score = 0
     hunting.kills = 0
@@ -141,6 +165,10 @@ function hunting:enter(fromState, entryPoint)
     hunting.reloading = false
     hunting.reloadTimer = 0
     
+    -- Tiger warning system
+    hunting.tigerWarning = false
+    hunting.tigerWarningTimer = 0
+    
     -- Load ammo from player's inventory (limited resources!)
     local playerEntity = require("entities/player")
     
@@ -149,18 +177,14 @@ function hunting:enter(fromState, entryPoint)
     local bulletCount = playerEntity.getItemCount("bullets") or 0
     local shellCount = playerEntity.getItemCount("shells") or 0
     
-    -- CONSUME ammo from inventory (remove it)
-    if arrowCount > 0 then
-        playerEntity.removeItem("arrows", arrowCount)
-    end
-    if bulletCount > 0 then
-        playerEntity.removeItem("bullets", bulletCount)
-    end
-    if shellCount > 0 then
-        playerEntity.removeItem("shells", shellCount)
-    end
+    print("🔍 DEBUG: Inventory ammo - Arrows:" .. arrowCount .. " Bullets:" .. bulletCount .. " Shells:" .. shellCount)
     
-    -- Load into hunting weapons
+    -- FIX: Don't remove ammo from inventory! Just reference it directly
+    -- The old system removed ammo on enter and returned on exit, causing loss if state switched incorrectly
+    -- NEW SYSTEM: Ammo stays in inventory, we just track it in hunting.ammo for convenience
+    -- When shooting, we'll decrement BOTH hunting.ammo AND inventory
+    
+    -- Load into hunting weapons (reference, not consume)
     hunting.ammo.bow = arrowCount
     hunting.ammo.rifle = bulletCount
     hunting.ammo.shotgun = shellCount
@@ -169,6 +193,8 @@ function hunting:enter(fromState, entryPoint)
     local hasBow = playerEntity.hasItem("bow_weapon")
     local hasRifle = playerEntity.hasItem("rifle_weapon")
     local hasShotgun = playerEntity.hasItem("shotgun_weapon")
+    
+    print("🔍 DEBUG: Weapons - Bow:" .. tostring(hasBow) .. " Rifle:" .. tostring(hasRifle) .. " Shotgun:" .. tostring(hasShotgun))
     
     -- Set starting weapon (prioritize owned weapons with ammo)
     if hasBow and hunting.ammo.bow > 0 then
@@ -180,22 +206,16 @@ function hunting:enter(fromState, entryPoint)
     elseif hasBow then
         hunting.currentWeapon = "bow" -- Default to bow even if no ammo
     else
-        print("❌ You don't own any weapons! Buy a weapon from the shop first.")
-        local gamestate = require("states/gamestate")
-        gamestate.switch("gameplay")
-        return
+        hunting.currentWeapon = "bow" -- Force bow as fallback
+        print("⚠️ WARNING: No weapons found, forcing bow")
     end
     
-    -- Check if player has any ammo at all
-    if hunting.ammo.bow == 0 and hunting.ammo.rifle == 0 and hunting.ammo.shotgun == 0 then
-        print("❌ No ammo! Buy arrows/bullets/shells from the shop.")
-        local gamestate = require("states/gamestate")
-        gamestate.switch("gameplay")
-        return
-    end
+    -- REMOVED AMMO VALIDATION - Allow entry even with no ammo for debugging
+    print("🔍 DEBUG: Ammo check bypassed - allowing entry")
     
     -- ALL VALIDATION PASSED - Now activate hunting mode!
     hunting.active = true
+    print("🔍 DEBUG: hunting.active set to TRUE")
     
     -- Show mouse cursor for aiming
     love.mouse.setVisible(true)
@@ -205,6 +225,9 @@ function hunting:enter(fromState, entryPoint)
     
     print("🏹 Armed with " .. hunting.weapons[hunting.currentWeapon].name)
     print("📦 Ammo: " .. hunting.ammo[hunting.currentWeapon])
+    print("═══════════════════════════════════════════════════════════")
+    print("🎯 HUNTING MODE READY - You can hunt now!")
+    print("═══════════════════════════════════════════════════════════")
 end
 
 function hunting:update(dt)
@@ -229,15 +252,55 @@ function hunting:update(dt)
         end
     end
     
-    -- Update animals
+    -- Update tiger warning timer
+    if hunting.tigerWarning and hunting.tigerWarningTimer > 0 then
+        hunting.tigerWarningTimer = hunting.tigerWarningTimer - dt
+        if hunting.tigerWarningTimer <= 0 then
+            hunting.tigerWarning = false
+        end
+    end
+    
+    -- Update animals (IMPROVED: Better removal pattern)
     for i = #hunting.animals, 1, -1 do
         local animal = hunting.animals[i]
-        hunting:updateAnimal(animal, dt)
         
-        -- Remove dead animals
+        -- Remove dead animals FIRST before processing
         if animal.dead then
             table.remove(hunting.animals, i)
+            goto continue -- Skip rest of iteration
         end
+        
+        -- Now process only living animals
+        hunting:updateAnimal(animal, dt)
+        
+        -- TIGER ATTACK: Check if tiger gets too close!
+        -- BUT ONLY if the tiger is ATTACKING (provoked by player shooting it)
+        if animal.type == "tiger" and animal.visible and animal.attacking then
+            local tigerScreenX = animal.x
+            local crosshairX = hunting.gunX -- Use gun position as "player center"
+            local distanceToPlayer = math.abs(tigerScreenX - crosshairX)
+            
+            -- If attacking tiger gets within 200 pixels, it triggers overworld chase
+            if distanceToPlayer < 200 then
+                print("═══════════════════════════════════════")
+                print("🐅 TIGER ATTACKS!")
+                print("💀 You are being chased!")
+                print("🏃 RUN TO YOUR HOUSE!")
+                print("═══════════════════════════════════════")
+                
+                -- Set global flag to trigger tiger chase in overworld
+                if not Game then Game = {} end
+                Game.tigerChasing = true
+                Game.tigerWarning = true
+                
+                -- Exit hunting and return to overworld
+                local gamestate = require("states/gamestate")
+                gamestate.switch("gameplay")
+                return
+            end
+        end
+        
+        ::continue:: -- Label for skipping iteration
     end
     
     -- Update projectiles (arrows)
@@ -263,14 +326,68 @@ function hunting:update(dt)
         end
     end
     
-    -- Spawn new animals periodically (reduced rate)
-    if #hunting.animals < 2 and math.random() < 0.005 then -- 0.5% chance per frame (much slower)
-        hunting:spawnAnimal()
+    -- Spawn new animals periodically (allow up to 3 animals total)
+    -- Count tigers and other animals separately
+    local tigerCount = 0
+    local otherAnimalCount = 0
+    for _, animal in ipairs(hunting.animals) do
+        if animal.type == "tiger" then
+            tigerCount = tigerCount + 1
+        else
+            otherAnimalCount = otherAnimalCount + 1
+        end
+    end
+    
+    -- Spawn logic: Allow 1 tiger + 2 other animals
+    if #hunting.animals < 3 and math.random() < 0.005 then -- 0.5% chance per frame
+        -- If tiger exists and we have 2+ other animals, don't spawn more
+        -- If no tiger, spawn normally
+        if tigerCount == 0 or otherAnimalCount < 2 then
+            hunting:spawnAnimal()
+        end
     end
 end
 
 function hunting:updateAnimal(animal, dt)
     local animalType = hunting.animalTypes[animal.type]
+    
+    -- ATTACKING BEHAVIOR (tigers get aggressive when wounded!)
+    if animal.attacking then
+        local attackSpeed = animalType.attackSpeed or 250
+        
+        -- Move toward center of screen (player position)
+        if animal.x < hunting.gunX then
+            animal.x = animal.x + attackSpeed * dt
+        else
+            animal.x = animal.x - attackSpeed * dt
+        end
+        
+        -- Keep visible while attacking
+        animal.visible = true
+        animal.state = "visible"
+        
+        -- Don't remove attacking animals - they keep coming!
+        return
+    end
+    
+    -- FLEEING BEHAVIOR (wounded animals escape!)
+    if animal.fleeing then
+        local fleeSpeed = animalType.fleeSpeed or 200
+        animal.x = animal.x + (animal.fleeDirection * fleeSpeed * dt)
+        
+        -- Remove when off-screen
+        if animal.x < -50 or animal.x > 1010 then
+            -- Animal escaped!
+            for i, a in ipairs(hunting.animals) do
+                if a == animal then
+                    table.remove(hunting.animals, i)
+                    print("🏃 " .. animalType.name .. " escaped off-screen!")
+                    break
+                end
+            end
+        end
+        return
+    end
     
     -- Update state timer
     animal.stateTimer = animal.stateTimer - dt
@@ -307,6 +424,10 @@ function hunting:updateAnimal(animal, dt)
         elseif animalType.behavior == "stalk" then
             -- Slow approach
             animal.x = animal.x + animal.direction * animalType.speed * 0.3 * dt
+        elseif animalType.behavior == "passive" then
+            -- PASSIVE: Tiger doesn't move unless provoked
+            -- Just stays in place, watching...
+            -- (Will only move when animal.attacking = true)
         end
         
         -- Keep in bounds
@@ -330,12 +451,19 @@ function hunting:spawnAnimal()
     
     local animalData = hunting.animalTypes[chosenType]
     
-    -- TIGER FEAR MECHANIC: If tiger spawns, player is too scared to hunt!
+    -- TIGER WARNING: Dangerous animal!
     if chosenType == "tiger" then
-        print("🐅 TIGER APPEARS! You flee in fear!")
-        print("⚠️  You were too scared to hunt and ran away!")
-        hunting:exitHunting()
-        return
+        print("═══════════════════════════════════════")
+        print("🐅 TIGER SPOTTED! DANGEROUS!")
+        print("⚠️  This animal will attack you!")
+        print("═══════════════════════════════════════")
+        
+        -- BLOCK THIS AREA UNTIL NEXT DAY!
+        local daynightSystem = require("systems/daynight")
+        local currentDay = daynightSystem.dayCount or 1
+        Game.tigerBlockedAreas[hunting.currentArea] = currentDay
+        print("🚫 " .. hunting.currentArea .. " is now BLOCKED until next day!")
+        print("🗺️  You'll need to hunt in a different area today!")
     end
     
     -- Spawn from sides or center
@@ -353,11 +481,13 @@ function hunting:spawnAnimal()
         type = chosenType,
         x = spawnX,
         y = math.random(280, 380), -- Ground level
-        health = animalData.health,
+        health = animalData.maxHealth, -- Use maxHealth from config
+        maxHealth = animalData.maxHealth, -- Store max for health bar
         state = "hidden",
         stateTimer = math.random(animalData.hideTime.min, animalData.hideTime.max),
         visible = false,
         dead = false,
+        attacking = false, -- Tigers start PASSIVE, only attack when shot
         direction = math.random() > 0.5 and 1 or -1
     }
     
@@ -379,9 +509,19 @@ function hunting:shoot()
         return
     end
     
-    -- Consume ammo
+    -- FIX: Consume ammo from BOTH hunting.ammo AND player inventory
     hunting.ammo[hunting.currentWeapon] = hunting.ammo[hunting.currentWeapon] - 1
     hunting.shots = hunting.shots + 1
+    
+    -- Also remove from player's actual inventory
+    local playerEntity = require("entities/player")
+    if hunting.currentWeapon == "bow" then
+        playerEntity.removeItem("arrows", 1)
+    elseif hunting.currentWeapon == "rifle" then
+        playerEntity.removeItem("bullets", 1)
+    elseif hunting.currentWeapon == "shotgun" then
+        playerEntity.removeItem("shells", 1)
+    end
     
     -- Start reload
     hunting.reloading = true
@@ -458,43 +598,98 @@ end
 function hunting:hitAnimal(animal, headshot)
     local animalData = hunting.animalTypes[animal.type]
     local playerEntity = require("entities/player")
+    local weapon = hunting.weapons[hunting.currentWeapon]
     
-    animal.dead = true
-    hunting.kills = hunting.kills + 1
-    
-    -- Calculate loot
-    local meatCount = animalData.meatCount
-    if headshot then
-        meatCount = math.floor(meatCount * animalData.headshotBonus)
-        print("🎯 HEADSHOT! " .. animalData.name .. " killed! (+" .. meatCount .. " meat)")
-    else
-        print("✓ " .. animalData.name .. " killed! (+" .. meatCount .. " meat)")
+    -- Initialize HP if not set
+    if not animal.health then
+        animal.health = animalData.maxHealth
+        animal.maxHealth = animalData.maxHealth
     end
     
-    -- Add meat to inventory
-    playerEntity.addItem(animal.type .. "_meat", meatCount)
+    -- Deal damage
+    local damage = weapon.damage
+    if headshot then
+        damage = damage * 2
+        print("🎯 HEADSHOT!")
+    end
     
-    -- Update score
-    local points = animalData.meatValue * meatCount
-    hunting.score = hunting.score + points
+    animal.health = animal.health - damage
+    animal.hasBeenHit = true -- Track that animal has been hit (for HP bar display)
+    print("💥 HIT " .. animalData.name .. " for " .. damage .. " damage! HP: " .. animal.health .. "/" .. animal.maxHealth)
+    
+    if animal.health <= 0 then
+        -- KILLED
+        animal.dead = true
+        hunting.kills = hunting.kills + 1
+        
+        -- Calculate loot
+        local meatCount = animalData.meatCount
+        if headshot then
+            meatCount = math.floor(meatCount * animalData.headshotBonus)
+        end
+        
+        -- Add meat to inventory
+        playerEntity.addItem(animal.type .. "_meat", meatCount)
+        
+        -- Update score
+        local points = animalData.meatValue * meatCount
+        hunting.score = hunting.score + points
+        
+        print("💀 KILLED " .. animalData.name .. "! +" .. meatCount .. " meat")
+    else
+        -- WOUNDED - Check if it's a tiger (dangerous animal)
+        if animalData.dangerous then
+            -- TIGER DOESN'T FLEE - IT GETS ANGRY!
+            animal.wounded = true
+            animal.attacking = true -- Mark as attacking instead of fleeing
+            animal.visible = true
+            
+            -- TRIGGER BIG RED WARNING!
+            hunting.tigerWarning = true
+            hunting.tigerWarningTimer = 3.0 -- Show warning for 3 seconds
+            
+            print("🐅 " .. animalData.name .. " is ENRAGED! (HP: " .. animal.health .. ") It's coming for you!")
+        else
+            -- Normal animals flee when wounded
+            animal.wounded = true
+            animal.fleeing = true
+            animal.visible = true -- Keep visible while fleeing
+            animal.fleeDirection = (hunting.gunX < animal.x) and 1 or -1
+            print("💨 " .. animalData.name .. " is WOUNDED (HP: " .. animal.health .. ") and fleeing!")
+        end
+    end
 end
 
 function hunting:exitHunting()
-    hunting.active = false
+    -- CHECK FOR ATTACKING TIGER FIRST!
+    -- If there's an enraged tiger, you can't just walk away!
+    for _, animal in ipairs(hunting.animals) do
+        if animal.type == "tiger" and animal.attacking and not animal.dead then
+            -- TIGER IS CHASING! Can't exit peacefully!
+            print("═══════════════════════════════════════")
+            print("🐅 YOU CAN'T ESCAPE!")
+            print("💀 The tiger is chasing you!")
+            print("🏃 IT FOLLOWS YOU OUT!")
+            print("═══════════════════════════════════════")
+            
+            -- Trigger tiger chase in overworld
+            if not Game then Game = {} end
+            Game.tigerChasing = true
+            Game.tigerWarning = true
+            
+            -- FIX: Ammo stays in inventory now, no need to return it
+            -- (Ammo is decremented from inventory when shooting)
+            
+            -- Exit to overworld with tiger chase active
+            local gamestate = require("states/gamestate")
+            gamestate.switch("gameplay")
+            return
+        end
+    end
     
-    -- Return unused ammo to player's inventory
-    local playerEntity = require("entities/player")
-    
-    -- Add back only what wasn't used
-    if hunting.ammo.bow > 0 then
-        playerEntity.addItem("arrows", hunting.ammo.bow)
-    end
-    if hunting.ammo.rifle > 0 then
-        playerEntity.addItem("bullets", hunting.ammo.rifle)
-    end
-    if hunting.ammo.shotgun > 0 then
-        playerEntity.addItem("shells", hunting.ammo.shotgun)
-    end
+    -- NO ATTACKING TIGER - Safe exit
+    -- FIX: Ammo stays in inventory now, no need to return it
+    -- (Ammo is decremented from inventory when shooting, so it's already accurate)
     
     -- Calculate accuracy
     local accuracy = hunting.shots > 0 and math.floor((hunting.kills / hunting.shots) * 100) or 0
@@ -508,6 +703,26 @@ function hunting:exitHunting()
     -- Return to gameplay
     local gamestate = require("states/gamestate")
     gamestate.switch("gameplay")
+end
+
+-- Called by gamestate manager when leaving hunting state
+function hunting:exit()
+    print("═══════════════════════════════════════════════════════════")
+    print("🔍 DEBUG: hunting:exit() called by gamestate manager")
+    print("═══════════════════════════════════════════════════════════")
+    hunting.active = false
+    
+    -- Hide mouse cursor
+    love.mouse.setVisible(false)
+    
+    -- Reset hunting state
+    hunting.animals = {}
+    hunting.projectiles = {}
+    hunting.reloading = false
+    hunting.reloadTimer = 0
+    
+    print("🔍 DEBUG: hunting:exit() complete - hunting.active = " .. tostring(hunting.active))
+    print("═══════════════════════════════════════════════════════════")
 end
 
 function hunting:draw()
@@ -628,6 +843,42 @@ function hunting:draw()
                 lg.line(animal.x - size/3, animal.y - size/2, animal.x - size/2, animal.y - size)
                 lg.line(animal.x + size/3, animal.y - size/2, animal.x + size/2, animal.y - size)
             end
+            
+            -- Draw health bar ONLY if animal has been hit (not initially visible)
+            -- IMPROVED: Added division by zero protection
+            if animal.hasBeenHit and animal.health and animal.maxHealth and animal.maxHealth > 0 then
+                local barWidth = 50
+                local barHeight = 6
+                local barX = animal.x - barWidth/2
+                local barY = animal.y - size/2 - 18  -- 18 pixels above animal
+                
+                -- Background (red)
+                lg.setColor(0.3, 0, 0, 0.8)
+                lg.rectangle("fill", barX, barY, barWidth, barHeight)
+                
+                -- Health (green to yellow to red based on percentage)
+                -- Clamp healthPercent between 0 and 1 to prevent visual glitches
+                local healthPercent = math.max(0, math.min(1, animal.health / animal.maxHealth))
+                local healthWidth = barWidth * healthPercent
+                
+                -- Color gradient based on health
+                if healthPercent > 0.6 then
+                    lg.setColor(0, 0.8, 0, 0.9)  -- Green (healthy)
+                elseif healthPercent > 0.3 then
+                    lg.setColor(0.9, 0.9, 0, 0.9)  -- Yellow (wounded)
+                else
+                    lg.setColor(0.9, 0, 0, 0.9)  -- Red (critical)
+                end
+                
+                lg.rectangle("fill", barX, barY, healthWidth, barHeight)
+                
+                -- Border
+                lg.setColor(0, 0, 0, 0.9)
+                lg.setLineWidth(1)
+                lg.rectangle("line", barX, barY, barWidth, barHeight)
+                
+                -- NO HP TEXT - Just the visual bar
+            end
         end
     end
     
@@ -729,11 +980,19 @@ function hunting:drawUI()
     lg.setColor(0, 0, 0, 0.7)
     lg.rectangle("fill", 10, 10, 300, 120)
     
-    -- Timer
-    lg.setColor(1, 1, 1)
+    -- Timer (with warning when low)
     local minutes = math.floor(hunting.timeRemaining / 60)
     local seconds = math.floor(hunting.timeRemaining % 60)
-    lg.print(string.format("⏱ Time: %d:%02d", minutes, seconds), 20, 20)
+    
+    if hunting.timeRemaining <= 30 then
+        -- Flash red when under 30 seconds
+        local flash = math.sin(love.timer.getTime() * 5) > 0
+        lg.setColor(flash and 1 or 0.5, 0, 0)
+        lg.print(string.format("⚠️ Time: %d:%02d", minutes, seconds), 20, 20)
+    else
+        lg.setColor(1, 1, 1)
+        lg.print(string.format("Time: %d:%02d", minutes, seconds), 20, 20)
+    end
     
     -- Weapon and ammo
     local weapon = hunting.weapons[hunting.currentWeapon]
@@ -752,6 +1011,32 @@ function hunting:drawUI()
     -- Instructions
     lg.setColor(1, 1, 1, 0.5)
     lg.print("[LEFT CLICK] Shoot  [1/2/3] Switch Weapon  [ENTER] Exit", 20, 515)
+    
+    -- ⚠️ TIGER WARNING OVERLAY (BIG RED SCREEN!)
+    if hunting.tigerWarning and hunting.tigerWarningTimer > 0 then
+        -- Red overlay with pulsing effect
+        local pulse = 0.3 + (math.sin(love.timer.getTime() * 10) * 0.2)
+        lg.setColor(1, 0, 0, pulse)
+        lg.rectangle("fill", 0, 0, 960, 540)
+        
+        -- Giant warning text
+        lg.setColor(1, 1, 1)
+        local warningText = "⚠️  TIGER ENRAGED!  ⚠️"
+        local font = lg.getFont()
+        local textWidth = font:getWidth(warningText)
+        lg.print(warningText, 480 - textWidth/2, 200, 0, 2, 2) -- 2x scale
+        
+        -- RUN! text
+        lg.setColor(1, 0, 0)
+        local runText = "RUN!"
+        local runWidth = font:getWidth(runText)
+        lg.print(runText, 480 - runWidth/2, 280, 0, 3, 3) -- 3x scale
+        
+        -- White outline on RUN text for better visibility
+        lg.setColor(1, 1, 1)
+        lg.print(runText, 478 - runWidth/2, 278, 0, 3, 3)
+        lg.print(runText, 482 - runWidth/2, 282, 0, 3, 3)
+    end
 end
 
 function hunting:keypressed(key)

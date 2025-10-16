@@ -30,6 +30,13 @@ function daynight.update(dt)
     if daynight.time >= 1.0 then
         daynight.time = daynight.time - 1.0
         daynight.dayCount = daynight.dayCount + 1
+        
+        -- CRITICAL FIX: Reset tiger blocked areas on new day
+        if Game and Game.tigerBlockedAreas then
+            Game.tigerBlockedAreas = {} -- Clear all blocked areas
+            print("🐅 Tiger blocked areas reset for new day")
+        end
+        
         print("🌅 Day " .. daynight.dayCount .. " begins!")
     end
     

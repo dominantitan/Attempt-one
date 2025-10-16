@@ -172,7 +172,9 @@ function areas.getPlayerNearHuntingZone(playerX, playerY)
     
     for _, zone in ipairs(currentArea.huntingZones) do
         local distance = math.sqrt((playerX - zone.x)^2 + (playerY - zone.y)^2)
-        if distance <= zone.radius + 30 and distance >= zone.radius - 20 then
+        -- FIXED: Detect entire circle (0 to radius+30), not just a ring
+        -- This allows entry from anywhere inside or near the zone
+        if distance <= zone.radius + 30 then
             return zone
         end
     end
@@ -207,6 +209,30 @@ function areas.transitionToArea(targetAreaId, targetPos)
     
     -- Handle area-specific initialization
     if targetArea.type == "hunting_area" then
+        -- Check if this hunting area is blocked by a tiger encounter
+        if not Game then Game = {} end
+        if not Game.tigerBlockedAreas then Game.tigerBlockedAreas = {} end
+        
+        local daynightSystem = require("systems/daynight")
+        local currentDay = daynightSystem.dayCount or 1
+        local blockedDay = Game.tigerBlockedAreas[targetAreaId]
+        
+        if blockedDay and blockedDay == currentDay then
+            -- Area is blocked! Show warning and prevent entry
+            print("═══════════════════════════════════════")
+            print("🚫 AREA BLOCKED!")
+            print("🐅 A tiger was spotted here earlier today!")
+            print("🗺️  Try a different hunting area!")
+            print("⏰ This area will be safe again tomorrow")
+            print("═══════════════════════════════════════")
+            
+            -- Return player to previous position (cancel entry)
+            playerSystem.x = targetPos.x or playerSystem.x
+            playerSystem.y = targetPos.y or playerSystem.y
+            areas.currentArea = areas.previousArea
+            return false
+        end
+        
         areas.spawnHuntingAreaAnimals(targetAreaId)
     elseif targetArea.type == "interior" then
         areas.initializeInterior(targetAreaId)

@@ -49,11 +49,13 @@ local gameplay = require("states/gameplay")
 local inventory = require("states/inventory")
 local shop = require("states/shop")
 local hunting = require("states/hunting")
+local death = require("states/death")
 
 gamestate.register("gameplay", gameplay)
 gamestate.register("inventory", inventory)
 gamestate.register("shop", shop)
 gamestate.register("hunting", hunting)
+gamestate.register("death", death)
 
 -- Core systems
 local worldSystem = require("systems/world")
@@ -127,8 +129,61 @@ function love.load()
     audioSystem.load()
     foragingSystem.load()
     
-    -- Initialize entities
+    -- Initialize entities (default values)
     playerEntity.load()
+    
+    -- AUTO-LOAD DISABLED FOR NOW - Will implement at the end
+    --[[
+    if saveUtil and saveUtil.load then
+        local savedData = saveUtil.load()
+        if savedData and savedData.player then
+            -- Restore player position
+            if savedData.player.x and savedData.player.y then
+                playerSystem.x = savedData.player.x
+                playerSystem.y = savedData.player.y
+                print("💾 Player position restored: (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
+            end
+            
+            -- Restore player stats
+            if savedData.player.health then
+                playerEntity.health = savedData.player.health
+            end
+            if savedData.player.stamina then
+                playerEntity.stamina = savedData.player.stamina
+            end
+            if savedData.player.hunger then
+                playerEntity.hunger = savedData.player.hunger
+            end
+            
+            -- Restore inventory (CRITICAL FOR AMMO PERSISTENCE!)
+            if savedData.player.inventory then
+                playerEntity.inventory = savedData.player.inventory
+                print("💾 Inventory restored with " .. #playerEntity.inventory.items .. " item types")
+                print("💰 Money: $" .. (playerEntity.inventory.money or 0))
+                
+                -- Show restored ammo counts
+                local arrows = playerEntity.getItemCount("arrows") or 0
+                local bullets = playerEntity.getItemCount("bullets") or 0
+                local shells = playerEntity.getItemCount("shells") or 0
+                print("🎯 Ammo restored: " .. arrows .. " arrows, " .. bullets .. " bullets, " .. shells .. " shells")
+            end
+            
+            -- Restore world state
+            if savedData.world then
+                if savedData.world.time then
+                    daynightSystem.time = savedData.world.time
+                end
+                if savedData.world.day then
+                    daynightSystem.dayCount = savedData.world.day
+                end
+            end
+            
+            print("✅ Game loaded from save file!")
+        else
+            print("ℹ️  No save file found - starting new game")
+        end
+    end
+    ]]--
     
     -- World system handles animal spawning now
     
@@ -164,19 +219,27 @@ function love.update(dt)
     -- Only update world system for main world area
     local areas = require("systems/areas")
     if areas.currentArea == "main_world" then
-        worldSystem.update(dt)
-        farmingSystem.update(dt)
-        cropsEntity.update(dt)
+        -- IMPROVED: Nil-safety checks to prevent crashes
+        if worldSystem and worldSystem.update then
+            worldSystem.update(dt, playerSystem.x, playerSystem.y)
+        end
+        if farmingSystem and farmingSystem.update then
+            farmingSystem.update(dt)
+        end
+        if cropsEntity and cropsEntity.update then
+            cropsEntity.update(dt)
+        end
     end
     
     -- Update entities (handled per-area now)
     playerEntity.update(dt)
     
     -- Update camera to follow player
+    -- IMPROVED: Nil-safety for camera position
     if Game.camera.update then
         Game.camera:update(dt)
     end
-    if Game.camera.setTarget then
+    if Game.camera.setTarget and playerSystem.x and playerSystem.y then
         Game.camera:setTarget({x = playerSystem.x, y = playerSystem.y})
     end
 end
@@ -282,7 +345,8 @@ function love.focus(focused)
 end
 
 function love.quit()
-    -- Auto-save before quitting
+    -- AUTO-SAVE DISABLED FOR NOW - Will implement at the end
+    --[[
     if saveUtil and playerEntity then
         local gameData = {
             player = {
@@ -295,6 +359,7 @@ function love.quit()
             },
             world = {
                 time = daynightSystem.time,
+                day = daynightSystem.dayCount or 1,
                 crops = cropsEntity.planted,
                 animals = animalsEntity.active
             }
@@ -302,8 +367,10 @@ function love.quit()
         
         if saveUtil.autoSave(gameData) then
             print("💾 Game auto-saved on exit")
+            print("💾 Day " .. gameData.world.day .. " saved")
         end
     end
+    ]]--
     
     print("👋 Thanks for playing!")
 end

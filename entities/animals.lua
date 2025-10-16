@@ -38,12 +38,12 @@ animals.types = {
     tiger = {
         name = "Tiger",
         size = {32, 24},
-        speed = 120,
+        speed = 110,
         health = 100,
         meat = 0, -- Can't hunt tigers
         aggressive = true,
         dangerous = true,
-        spawnChance = 0.05,
+        spawnChance = 0.95,
         color = {1, 0.5, 0}
     }
 }

@@ -7,6 +7,7 @@ function gameplay:enter()
     -- Initialize gameplay systems
     local areas = require("systems/areas")
     areas.load()
+    print("🔍 DEBUG: ========== ENTERING GAMEPLAY STATE ==========")
     print("🎮 Entering gameplay state - Area system loaded")
 end
 
@@ -21,6 +22,10 @@ function gameplay:update(dt)
     
     local daynightSystem = require("systems/daynight")
     daynightSystem.update(dt)
+    
+    -- Update world system (for tiger chase)
+    local worldSystem = require("systems/world")
+    worldSystem.update(dt, playerSystem.x, playerSystem.y)
 end
 
 function gameplay:draw()
@@ -54,8 +59,24 @@ function gameplay:drawInteractionPrompts()
     if currentArea.type == "overworld" and currentArea.huntingZones then
         local nearHuntingZone = areas.getPlayerNearHuntingZone(playerSystem.x, playerSystem.y)
         if nearHuntingZone then
-            love.graphics.setColor(0.9, 0.7, 0.3)
-            love.graphics.print("🎯 " .. nearHuntingZone.name .. ": Press ENTER to hunt", 10, love.graphics.getHeight() - 20)
+            -- Check if this zone is blocked by a tiger
+            if not Game then Game = {} end
+            if not Game.tigerBlockedAreas then Game.tigerBlockedAreas = {} end
+            
+            local daynightSystem = require("systems/daynight")
+            local currentDay = daynightSystem.dayCount or 1
+            local zoneId = nearHuntingZone.target or nearHuntingZone.name
+            local blockedDay = Game.tigerBlockedAreas[zoneId]
+            
+            if blockedDay and blockedDay == currentDay then
+                -- Show blocked warning
+                love.graphics.setColor(1, 0, 0)
+                love.graphics.print("🚫 " .. nearHuntingZone.name .. ": BLOCKED (Tiger sighting today!)", 10, love.graphics.getHeight() - 20)
+            else
+                -- Show normal prompt
+                love.graphics.setColor(0.9, 0.7, 0.3)
+                love.graphics.print("🎯 " .. nearHuntingZone.name .. ": Press ENTER to hunt", 10, love.graphics.getHeight() - 20)
+            end
         end
     end
     
@@ -119,6 +140,11 @@ function gameplay:drawInteractionPrompts()
     love.graphics.setColor(0.7, 0.7, 0.7)
     love.graphics.print("WASD to move | I for inventory | R to forage | T to spawn crops (debug)", 10, love.graphics.getHeight() - 140)
     
+    -- Show day counter in top-right corner
+    local daynightSystem = require("systems/daynight")
+    love.graphics.setColor(1, 1, 0.8)
+    love.graphics.print("Day " .. daynightSystem.dayCount, love.graphics.getWidth() - 80, 10)
+    
     love.graphics.setColor(1, 1, 1)
 end
 
@@ -160,11 +186,39 @@ function gameplay:keypressed(key)
     
     -- Hunting zone entries (main world only) - Use NEW first-person hunting!
     local nearHuntingZone = areas.getPlayerNearHuntingZone(playerSystem.x, playerSystem.y)
-    if key == "return" and nearHuntingZone then
-        print("🎯 Entering " .. nearHuntingZone.name .. " - First-Person Hunting!")
-        -- Go to NEW first-person hunting state (NOT old hunting_area)
-        gamestate.switch("hunting")
-        return
+    if key == "return" then
+        print("🔍 DEBUG: ENTER pressed. Near hunting zone: " .. tostring(nearHuntingZone ~= nil))
+        if nearHuntingZone then
+            print("🔍 DEBUG: Zone name: " .. nearHuntingZone.name)
+            
+            -- Check if this hunting zone is blocked by a tiger encounter
+            if not Game then Game = {} end
+            if not Game.tigerBlockedAreas then Game.tigerBlockedAreas = {} end
+            
+            local daynightSystem = require("systems/daynight")
+            local currentDay = daynightSystem.dayCount or 1
+            local zoneId = nearHuntingZone.target or nearHuntingZone.name
+            local blockedDay = Game.tigerBlockedAreas[zoneId]
+            
+            if blockedDay and blockedDay == currentDay then
+                -- Area is blocked! Show warning
+                print("═══════════════════════════════════════")
+                print("🚫 AREA BLOCKED!")
+                print("🐅 A tiger was spotted here earlier today!")
+                print("🗺️  Try a different hunting area!")
+                print("⏰ This area will be safe again tomorrow")
+                print("═══════════════════════════════════════")
+                return
+            end
+            
+            print("🎯 Entering " .. nearHuntingZone.name .. " - First-Person Hunting!")
+            
+            -- Pass the zone ID to the hunting state
+            gamestate.switch("hunting", zoneId)
+            return
+        else
+            print("🔍 DEBUG: Not near any hunting zone. Walk to Northwestern Woods (130, 130)")
+        end
     end
     
     -- Interior interactions

@@ -319,6 +319,23 @@ end
 
 -- Draw world elements
 function world.draw()
+    -- DRAW TIGER CHASE (high priority - draw first so it's behind player)
+    if Game and Game.tigerChasing and world.tigerChase then
+        local tiger = world.tigerChase
+        love.graphics.setColor(1, 0.5, 0, 1) -- Orange for tiger
+        love.graphics.circle("fill", tiger.x, tiger.y, 20)
+        
+        -- Draw tiger face
+        love.graphics.setColor(0, 0, 0)
+        love.graphics.circle("fill", tiger.x - 7, tiger.y - 5, 3) -- Eye
+        love.graphics.circle("fill", tiger.x + 7, tiger.y - 5, 3) -- Eye
+        love.graphics.arc("line", "open", tiger.x, tiger.y + 5, 8, math.pi * 0.2, math.pi * 0.8) -- Mouth
+        
+        -- Warning text
+        love.graphics.setColor(1, 0, 0, math.abs(math.sin(love.timer.getTime() * 5)))
+        love.graphics.print("🐅 TIGER CHASING! RUN TO HOUSE!", 300, 20)
+    end
+    
     -- Always draw hunting zone boundaries (visible circles)
     for name, zone in pairs(world.huntingZones) do
         if zone.active then
@@ -421,8 +438,70 @@ function world.draw()
 end
 
 -- Update world systems
-function world.update(dt)
+function world.update(dt, playerX, playerY)
     world.updateWorldAnimals(dt)
+    
+    -- Safety check: if no player position provided, skip tiger chase
+    if not playerX or not playerY then
+        return
+    end
+    
+    -- TIGER CHASE SYSTEM
+    if Game and Game.tigerChasing and world.tigerChase then
+        local tiger = world.tigerChase
+        
+        -- Move tiger toward player
+        local dx = playerX - tiger.x
+        local dy = playerY - tiger.y
+        local distance = math.sqrt(dx*dx + dy*dy)
+        
+        if distance > 0 then
+            -- Normalize and move
+            tiger.x = tiger.x + (dx / distance) * tiger.speed * dt
+            tiger.y = tiger.y + (dy / distance) * tiger.speed * dt
+        end
+        
+        -- Check if tiger caught player
+        if distance < 30 then
+            print("═══════════════════════════════════════")
+            print("💀 THE TIGER CAUGHT YOU!")
+            print("☠️  GAME OVER")
+            print("═══════════════════════════════════════")
+            
+            -- Switch to death screen
+            local gamestate = require("states/gamestate")
+            gamestate.switch("death")
+            return
+        end
+        
+        -- Check if player reached house (safe zone)
+        local houseX = world.structures.cabin.x + world.structures.cabin.width/2
+        local houseY = world.structures.cabin.y + world.structures.cabin.height/2
+        local distanceToHouse = math.sqrt((playerX - houseX)^2 + (playerY - houseY)^2)
+        
+        if distanceToHouse < 50 then
+            print("═══════════════════════════════════════")
+            print("🏠 YOU MADE IT HOME SAFELY!")
+            print("✅ The tiger gives up and runs away")
+            print("═══════════════════════════════════════")
+            
+            -- Remove tiger chase
+            Game.tigerChasing = false
+            Game.tigerWarning = false
+            world.tigerChase = nil
+        end
+    end
+    
+    -- Initialize tiger chase if triggered
+    if Game and Game.tigerChasing and not world.tigerChase then
+        -- Spawn tiger behind player
+        world.tigerChase = {
+            x = playerX - 100,
+            y = playerY,
+            speed = 85 -- Slightly slower than player (player = ~100) - gives reaction time!
+        }
+        print("🐅 Tiger chase started! Run to your house!")
+    end
     
     -- Update active hunting zone animals
     local activeZone = world.getActiveHuntingZone()
