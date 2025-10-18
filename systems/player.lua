@@ -54,6 +54,21 @@ function player.update(dt)
     player.x = player.x + dx * player.speed * dt
     player.y = player.y + dy * player.speed * dt
     
+    -- ENFORCE BOUNDARIES (area-specific)
+    local areas = require("systems/areas")
+    local currentArea = areas.getCurrentArea()
+    
+    if currentArea and currentArea.type == "interior" and currentArea.name == "Uncle's Cabin" then
+        -- CABIN INTERIOR BOUNDARIES (larger - full floor rectangle)
+        player.x = math.max(20, math.min(460, player.x))
+        player.y = math.max(20, math.min(300, player.y))
+    else
+        -- OVERWORLD BOUNDARIES - Keep player within playable area
+        local world = require("systems/world")
+        player.x = math.max(world.bounds.left, math.min(world.bounds.right, player.x))
+        player.y = math.max(world.bounds.top, math.min(world.bounds.bottom, player.y))
+    end
+    
     -- Check if player is moving
     player.isMoving = dx ~= 0 or dy ~= 0
     

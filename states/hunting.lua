@@ -3,6 +3,9 @@
 
 local hunting = {}
 
+-- Import centralized animal data (SINGLE SOURCE OF TRUTH)
+local animalsEntity = require("entities/animals")
+
 -- Hunting session state
 hunting.active = false
 hunting.timeRemaining = 180 -- 3 minutes
@@ -26,6 +29,9 @@ hunting.ammo = {
 }
 hunting.reloading = false
 hunting.reloadTimer = 0
+
+-- Spawn cooldown (prevents performance issues from repeated spawn attempts)
+hunting.spawnCooldown = 0
 
 -- Weapon stats
 hunting.weapons = {
@@ -72,70 +78,20 @@ hunting.crosshair = {
 hunting.gunX = 480
 hunting.gunY = 480
 
--- Animal definitions
-hunting.animalTypes = {
-    rabbit = {
-        name = "Rabbit",
-        spawnChance = 0.5, -- 50% of spawns
-        maxHealth = 50, -- One-shot with bow (50 damage)
-        speed = 150, -- pixels per second
-        fleeSpeed = 300, -- Speed when wounded and fleeing
-        size = 40,
-        meatValue = 15,
-        meatCount = 1,
-        headshotBonus = 2, -- 2x meat on headshot
-        behavior = "dart", -- quick movements
-        hideTime = {min = 2, max = 4}, -- seconds hidden
-        showTime = {min = 1, max = 3}, -- seconds visible
-        audioRadius = 100 -- pixels, how far rustling is heard
-    },
-    deer = {
-        name = "Deer",
-        spawnChance = 0.3,
-        maxHealth = 150, -- Takes 3 bow shots or 2 rifle shots
-        speed = 80,
-        fleeSpeed = 200,
-        size = 80,
-        meatValue = 30,
-        meatCount = 2,
-        headshotBonus = 2,
-        behavior = "graze",
-        hideTime = {min = 1, max = 2},
-        showTime = {min = 4, max = 8},
-        audioRadius = 120
-    },
-    boar = {
-        name = "Boar",
-        spawnChance = 0.15,
-        maxHealth = 250, -- Takes 5 bow shots or 3 rifle shots
-        speed = 100,
-        fleeSpeed = 180,
-        size = 60,
-        meatValue = 50,
-        meatCount = 3,
-        headshotBonus = 1.5,
-        behavior = "charge",
-        hideTime = {min = 3, max = 5},
-        showTime = {min = 2, max = 4},
-        audioRadius = 150
-    },
-    tiger = {
-        name = "Tiger",
-        spawnChance = 0.95, -- TEMP: 95% for testing (normally 0.05)
-        maxHealth = 500, -- Very tough! Takes 10 bow shots or 6 rifle shots
-        speed = 120,
-        attackSpeed = 250, -- Speed when attacking player (when provoked)
-        size = 100,
-        meatValue = 100,
-        meatCount = 5,
-        headshotBonus = 2,
-        behavior = "passive", -- PASSIVE: Doesn't move unless provoked!
-        dangerous = true, -- This tiger attacks when shot!
-        hideTime = {min = 5, max = 10},
-        showTime = {min = 3, max = 6},
-        audioRadius = 200
-    }
-}
+-- Animal definitions (USE CENTRALIZED DATA from entities/animals.lua)
+-- This creates a convenient reference to the huntingStats with the name included
+hunting.animalTypes = {}
+for animalType, data in pairs(animalsEntity.types) do
+    if data.huntingStats then
+        -- Copy huntingStats and add the name from parent
+        local stats = {}
+        for k, v in pairs(data.huntingStats) do
+            stats[k] = v
+        end
+        stats.name = data.name -- Add name from parent data
+        hunting.animalTypes[animalType] = stats
+    end
+end
 
 -- Projectiles (for bow arrows)
 hunting.projectiles = {}
@@ -293,6 +249,9 @@ function hunting:update(dt)
                 Game.tigerChasing = true
                 Game.tigerWarning = true
                 
+                -- Hide mouse cursor before exiting
+                love.mouse.setVisible(false)
+                
                 -- Exit hunting and return to overworld
                 local gamestate = require("states/gamestate")
                 gamestate.switch("gameplay")
@@ -320,11 +279,25 @@ function hunting:update(dt)
             end
         end
         
-        -- Remove expired projectiles
-        if proj.lifetime <= 0 or proj.x < 0 or proj.x > 960 or proj.y < 0 or proj.y > 540 then
+        -- IMPROVED: Calculate distance traveled for max distance check
+        local distanceTraveled = 0
+        if proj.startX and proj.startY then
+            local dx = proj.x - proj.startX
+            local dy = proj.y - proj.startY
+            distanceTraveled = math.sqrt(dx*dx + dy*dy)
+        end
+        
+        -- IMPROVED: Remove projectiles that are expired, off-screen, or traveled too far
+        if proj.lifetime <= 0 or 
+           proj.x < 0 or proj.x > 960 or 
+           proj.y < 0 or proj.y > 540 or
+           distanceTraveled > (proj.maxDistance or 2000) then
             table.remove(hunting.projectiles, i)
         end
     end
+    
+    -- IMPROVED: Update spawn cooldown
+    hunting.spawnCooldown = hunting.spawnCooldown - dt
     
     -- Spawn new animals periodically (allow up to 3 animals total)
     -- Count tigers and other animals separately
@@ -338,12 +311,19 @@ function hunting:update(dt)
         end
     end
     
-    -- Spawn logic: Allow 1 tiger + 2 other animals
-    if #hunting.animals < 3 and math.random() < 0.005 then -- 0.5% chance per frame
-        -- If tiger exists and we have 2+ other animals, don't spawn more
-        -- If no tiger, spawn normally
-        if tigerCount == 0 or otherAnimalCount < 2 then
-            hunting:spawnAnimal()
+    -- IMPROVED: Spawn logic with cooldown (prevents performance issues)
+    if #hunting.animals < 3 and hunting.spawnCooldown <= 0 then
+        if math.random() < 0.005 then -- 0.5% chance per frame
+            -- If tiger exists and we have 2+ other animals, don't spawn more
+            -- If no tiger, spawn normally
+            if tigerCount == 0 or otherAnimalCount < 2 then
+                local spawned = hunting:spawnAnimal()
+                if spawned then
+                    hunting.spawnCooldown = 2 -- 2 second cooldown on successful spawn
+                else
+                    hunting.spawnCooldown = 5 -- 5 second cooldown if spawn failed
+                end
+            end
         end
     end
 end
@@ -398,6 +378,23 @@ function hunting:updateAnimal(animal, dt)
             animal.state = "visible"
             animal.stateTimer = math.random(animalType.showTime.min, animalType.showTime.max)
             animal.visible = true
+            
+            -- TIGER BLOCKING: Block area only when tiger becomes VISIBLE (not just spawned)
+            if animal.type == "tiger" and not animal.blockingLogged then
+                print("═══════════════════════════════════════")
+                print("🐅 TIGER APPEARS! DANGEROUS!")
+                print("⚠️  This animal will attack you!")
+                print("═══════════════════════════════════════")
+                
+                -- BLOCK THIS AREA UNTIL NEXT DAY!
+                local daynightSystem = require("systems/daynight")
+                local currentDay = daynightSystem.dayCount or 0
+                Game.tigerBlockedAreas[hunting.currentArea] = currentDay
+                animal.blockingLogged = true -- Only log once per animal
+                print("🚫 " .. hunting.currentArea .. " is now BLOCKED until next day!")
+                print("🗓️  Current day: " .. currentDay)
+                print("🗺️  You'll need to hunt in a different area today!")
+            end
         end
         
     elseif animal.state == "visible" then
@@ -436,35 +433,44 @@ function hunting:updateAnimal(animal, dt)
 end
 
 function hunting:spawnAnimal()
-    -- Choose random animal type based on spawn chances
-    local roll = math.random()
-    local cumulative = 0
-    local chosenType = "rabbit"
+    -- Get day/night info for dynamic spawn rates
+    local daynightSystem = require("systems/daynight")
+    local isNight = daynightSystem.isNight or false
+    
+    -- Build weighted spawn table with day/night adjustments
+    local spawnTable = {}
+    local totalWeight = 0
     
     for animalType, data in pairs(hunting.animalTypes) do
-        cumulative = cumulative + data.spawnChance
+        local weight = data.spawnChance
+        
+        -- DYNAMIC SPAWN: Increase tiger spawn at night
+        if animalType == "tiger" and isNight and data.nightSpawnMultiplier then
+            weight = weight * data.nightSpawnMultiplier
+            print("🌙 Night hunting - Tiger spawn rate increased to " .. (weight * 100) .. "%")
+        end
+        
+        table.insert(spawnTable, {type = animalType, weight = weight})
+        totalWeight = totalWeight + weight
+    end
+    
+    -- Weighted random selection (fixes spawn probability math)
+    local roll = math.random() * totalWeight
+    local cumulative = 0
+    local chosenType = "rabbit" -- Fallback
+    
+    for _, entry in ipairs(spawnTable) do
+        cumulative = cumulative + entry.weight
         if roll <= cumulative then
-            chosenType = animalType
+            chosenType = entry.type
             break
         end
     end
     
     local animalData = hunting.animalTypes[chosenType]
     
-    -- TIGER WARNING: Dangerous animal!
-    if chosenType == "tiger" then
-        print("═══════════════════════════════════════")
-        print("🐅 TIGER SPOTTED! DANGEROUS!")
-        print("⚠️  This animal will attack you!")
-        print("═══════════════════════════════════════")
-        
-        -- BLOCK THIS AREA UNTIL NEXT DAY!
-        local daynightSystem = require("systems/daynight")
-        local currentDay = daynightSystem.dayCount or 1
-        Game.tigerBlockedAreas[hunting.currentArea] = currentDay
-        print("🚫 " .. hunting.currentArea .. " is now BLOCKED until next day!")
-        print("🗺️  You'll need to hunt in a different area today!")
-    end
+    -- TIGER WARNING: Only shown when tiger becomes visible, blocking happens then
+    -- (Blocking logic moved to when tiger state changes to "visible")
     
     -- Spawn from sides or center
     local spawnSide = math.random(1, 3)
@@ -493,6 +499,7 @@ function hunting:spawnAnimal()
     
     table.insert(hunting.animals, animal)
     print("🦌 " .. animalData.name .. " appeared nearby")
+    return true -- Spawn successful
 end
 
 function hunting:shoot()
@@ -550,9 +557,12 @@ function hunting:createProjectile()
     local proj = {
         x = hunting.gunX,
         y = hunting.gunY,
+        startX = hunting.gunX, -- Track starting position for max distance
+        startY = hunting.gunY,
         vx = math.cos(angle) * weapon.projectileSpeed,
         vy = math.sin(angle) * weapon.projectileSpeed,
         lifetime = 2.0, -- seconds
+        maxDistance = 2000, -- Max travel distance in pixels
         headshot = math.abs(spread) < 2 -- Perfect aim = headshot potential
     }
     
@@ -680,6 +690,9 @@ function hunting:exitHunting()
             -- FIX: Ammo stays in inventory now, no need to return it
             -- (Ammo is decremented from inventory when shooting)
             
+            -- Hide mouse cursor before exiting
+            love.mouse.setVisible(false)
+            
             -- Exit to overworld with tiger chase active
             local gamestate = require("states/gamestate")
             gamestate.switch("gameplay")
@@ -699,6 +712,9 @@ function hunting:exitHunting()
     print("💯 Accuracy: " .. accuracy .. "%")
     print("💰 Score: $" .. hunting.score)
     print("📦 Ammo returned: " .. hunting.ammo.bow .. " arrows, " .. hunting.ammo.rifle .. " bullets, " .. hunting.ammo.shotgun .. " shells")
+    
+    -- Hide mouse cursor before returning to gameplay
+    love.mouse.setVisible(false)
     
     -- Return to gameplay
     local gamestate = require("states/gamestate")

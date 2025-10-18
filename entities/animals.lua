@@ -1,50 +1,121 @@
 -- Animals Entity
 -- Defines different animal types and their behaviors
+-- SINGLE SOURCE OF TRUTH for all animal data (used in both overworld and hunting)
 
 local animals = {}
 
--- Animal definitions
+-- Animal definitions (UNIFIED for overworld and hunting)
 animals.types = {
     rabbit = {
         name = "Rabbit",
+        -- Overworld stats
         size = {16, 12},
         speed = 80,
         health = 20,
         meat = 2,
         aggressive = false,
         spawnChance = 0.7,
-        color = {0.8, 0.7, 0.5}
+        color = {0.8, 0.7, 0.5},
+        
+        -- Hunting minigame stats
+        huntingStats = {
+            spawnChance = 0.5,
+            maxHealth = 50,
+            speed = 150,
+            fleeSpeed = 300,
+            size = 40,
+            meatValue = 15,
+            meatCount = 1,
+            headshotBonus = 2,
+            behavior = "dart",
+            hideTime = {min = 2, max = 4},
+            showTime = {min = 1, max = 3},
+            audioRadius = 100
+        }
     },
     deer = {
         name = "Deer",
+        -- Overworld stats
         size = {24, 20},
         speed = 100,
         health = 40,
         meat = 5,
         aggressive = false,
         spawnChance = 0.4,
-        color = {0.6, 0.4, 0.2}
+        color = {0.6, 0.4, 0.2},
+        
+        -- Hunting minigame stats
+        huntingStats = {
+            spawnChance = 0.3,
+            maxHealth = 150,
+            speed = 80,
+            fleeSpeed = 200,
+            size = 80,
+            meatValue = 30,
+            meatCount = 2,
+            headshotBonus = 2,
+            behavior = "graze",
+            hideTime = {min = 1, max = 2},
+            showTime = {min = 4, max = 8},
+            audioRadius = 120
+        }
     },
     boar = {
         name = "Boar",
+        -- Overworld stats
         size = {20, 16},
         speed = 60,
         health = 60,
         meat = 8,
         aggressive = true,
         spawnChance = 0.2,
-        color = {0.3, 0.2, 0.1}
+        color = {0.3, 0.2, 0.1},
+        
+        -- Hunting minigame stats
+        huntingStats = {
+            spawnChance = 0.15,
+            maxHealth = 250,
+            speed = 100,
+            fleeSpeed = 180,
+            size = 60,
+            meatValue = 50,
+            meatCount = 3,
+            headshotBonus = 1.5,
+            behavior = "charge",
+            hideTime = {min = 3, max = 5},
+            showTime = {min = 2, max = 4},
+            audioRadius = 150
+        }
     },
     tiger = {
         name = "Tiger",
+        -- Overworld stats
         size = {32, 24},
         speed = 110,
         health = 100,
         meat = 0, -- Can't hunt tigers
         aggressive = true,
         dangerous = true,
-        spawnChance = 0.95,
-        color = {1, 0.5, 0}
+        spawnChance = 0.2,
+        color = {1, 0.5, 0},
+        
+        -- Hunting minigame stats
+        huntingStats = {
+            spawnChance = 0.05, -- NORMALIZED: 5% base spawn rate (rare encounter)
+            nightSpawnMultiplier = 4, -- 4x more common at night (20% spawn rate)
+            maxHealth = 500,
+            speed = 120,
+            attackSpeed = 250,
+            size = 100,
+            meatValue = 100,
+            meatCount = 5,
+            headshotBonus = 2,
+            behavior = "passive",
+            dangerous = true,
+            hideTime = {min = 5, max = 10},
+            showTime = {min = 3, max = 6},
+            audioRadius = 200
+        }
     }
 }
 
@@ -115,42 +186,13 @@ function animals.updateAnimal(animal, dt)
     animal.x = animal.x + math.cos(animal.direction) * moveSpeed
     animal.y = animal.y + math.sin(animal.direction) * moveSpeed
     
-    -- Keep animals within their hunting zone if possible
-    local worldSystem = require("systems/world")
-    local inZone = false
-    
-    for zoneName, zone in pairs(worldSystem.huntingZones) do
-        local distance = math.sqrt((animal.x - zone.x)^2 + (animal.y - zone.y)^2)
-        if distance <= zone.radius then
-            inZone = true
-            break
-        end
+    -- DESPAWN animals that escape boundaries (SIMPLIFIED - no bounce)
+    -- World playable area: 50 to 910 width, 50 to 520 height
+    if animal.x < 40 or animal.x > 920 or animal.y < 40 or animal.y > 530 then
+        animal.alive = false -- Mark for removal
+        print("🦌 Animal wandered off and disappeared")
+        return
     end
-    
-    -- If animal wandered out of hunting zones, gently steer back
-    if not inZone and not animal.fleeing then
-        -- Find closest hunting zone
-        local closestZone = nil
-        local closestDistance = math.huge
-        
-        for zoneName, zone in pairs(worldSystem.huntingZones) do
-            local distance = math.sqrt((animal.x - zone.x)^2 + (animal.y - zone.y)^2)
-            if distance < closestDistance then
-                closestDistance = distance
-                closestZone = zone
-            end
-        end
-        
-        if closestZone then
-            -- Steer towards closest zone
-            local angle = math.atan2(closestZone.y - animal.y, closestZone.x - animal.x)
-            animal.direction = angle + (math.random() - 0.5) * 0.5 -- Add some randomness
-        end
-    end
-    
-    -- Keep animals within world bounds as fallback
-    animal.x = math.max(50, math.min(910, animal.x))
-    animal.y = math.max(50, math.min(490, animal.y))
     
     -- Reset fleeing state after some time
     if animal.fleeing then

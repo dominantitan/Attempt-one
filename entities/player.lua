@@ -155,6 +155,15 @@ function player.resetStats()
     player.stamina = player.maxStamina
     player.hunger = player.maxHunger
     player.isDead = false
+    
+    -- CRITICAL FIX: Also reset inventory to empty state
+    player.inventory = {
+        items = {},
+        maxSlots = 20,
+        money = 0
+    }
+    
+    print("🔄 Stats and inventory reset to default")
 end
 
 function player.getStatusText()

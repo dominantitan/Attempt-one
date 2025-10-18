@@ -7,6 +7,14 @@ local world = {}
 world.width = 960
 world.height = 540
 
+-- CORRECTED BOUNDARIES (based on screenshot analysis)
+world.bounds = {
+    left = 50,
+    right = 910 - 32,
+    top = 50,
+    bottom = 520 - 32 -- FIXED: Was 490, now 520 (closer to actual bottom)
+}
+
 -- Structure positions (based on your screenshot)
 world.structures = {
     cabin = {
@@ -319,6 +327,28 @@ end
 
 -- Draw world elements
 function world.draw()
+    -- DRAW WORLD BOUNDARIES (Visual indicators)
+    love.graphics.setColor(0.8, 0.2, 0.2, 0.6) -- Red boundaries
+    love.graphics.setLineWidth(3)
+    
+    -- Top boundary
+    love.graphics.line(50, 50, 910, 50)
+    -- Bottom boundary (CORRECTED to 520)
+    love.graphics.line(50, 520, 910, 520)
+    -- Left boundary
+    love.graphics.line(50, 50, 50, 520)
+    -- Right boundary
+    love.graphics.line(910, 50, 910, 520)
+    
+    -- Draw corner markers for visibility
+    love.graphics.setColor(1, 0, 0, 0.8)
+    love.graphics.rectangle("line", 50, 50, 20, 20) -- Top-left
+    love.graphics.rectangle("line", 890, 50, 20, 20) -- Top-right
+    love.graphics.rectangle("line", 50, 500, 20, 20) -- Bottom-left (CORRECTED)
+    love.graphics.rectangle("line", 890, 500, 20, 20) -- Bottom-right (CORRECTED)
+    
+    love.graphics.setLineWidth(1) -- Reset line width
+    
     -- DRAW TIGER CHASE (high priority - draw first so it's behind player)
     if Game and Game.tigerChasing and world.tigerChase then
         local tiger = world.tigerChase
@@ -384,6 +414,13 @@ function world.draw()
             love.graphics.rectangle("fill", structure.x, structure.y, structure.width, structure.height)
             love.graphics.setColor(0.4, 0.2, 0.1) -- Darker roof
             love.graphics.rectangle("fill", structure.x - 5, structure.y - 10, structure.width + 10, 15)
+            
+            -- BOUNDARY OUTLINE for cabin
+            love.graphics.setColor(1, 1, 0, 0.7) -- Yellow outline
+            love.graphics.setLineWidth(2)
+            love.graphics.rectangle("line", structure.x - 2, structure.y - 2, structure.width + 4, structure.height + 4)
+            love.graphics.setLineWidth(1)
+            
         elseif name == "pond" then
             love.graphics.setColor(0.2, 0.4, 0.8) -- Blue pond
             love.graphics.ellipse("fill", structure.x + structure.width/2, structure.y + structure.height/2, structure.width/2, structure.height/2)
@@ -449,6 +486,19 @@ function world.update(dt, playerX, playerY)
     -- TIGER CHASE SYSTEM
     if Game and Game.tigerChasing and world.tigerChase then
         local tiger = world.tigerChase
+        
+        -- CRITICAL FIX: Check if tiger is dead (health tracking if linked to hunting state)
+        if tiger.health and tiger.health <= 0 then
+            print("═══════════════════════════════════════")
+            print("🐅 The tiger collapsed from its wounds!")
+            print("✅ You survived the chase!")
+            print("═══════════════════════════════════════")
+            
+            Game.tigerChasing = false
+            Game.tigerWarning = false
+            world.tigerChase = nil
+            return
+        end
         
         -- Move tiger toward player
         local dx = playerX - tiger.x

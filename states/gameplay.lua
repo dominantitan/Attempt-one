@@ -37,6 +37,38 @@ function gameplay:draw()
     local playerSystem = require("systems/player")
     playerSystem.draw()
     
+    -- DRAW INTERIOR BOUNDARIES (for cabin bedroom)
+    local currentArea = areas.getCurrentArea()
+    if currentArea.type == "interior" and currentArea.name == "Uncle's Cabin" then
+        -- Cabin interior boundaries (brown bedroom area in screenshot)
+        love.graphics.setColor(0.8, 0.6, 0.2, 0.7) -- Brown/gold boundary
+        love.graphics.setLineWidth(3)
+        
+        -- Interior room boundaries (adjusted for player size 64x64)
+        -- Player clamping is at (20, 460, 20, 300) for player CENTER
+        -- Visual boundary shows where player EDGES touch (center ± 32px)
+        local playerHalfSize = 32
+        local roomLeft = 20      -- Player left edge at x=20-32 = -12 (clamped to 20)
+        local roomRight = 460 + playerHalfSize  -- Player right edge at x=460+32 = 492
+        local roomTop = 20       -- Player top edge at y=20-32 = -12 (clamped to 20)
+        local roomBottom = 300 + playerHalfSize  -- Player bottom edge at y=300+32 = 332
+        
+        love.graphics.line(roomLeft, roomTop, roomRight, roomTop) -- Top
+        love.graphics.line(roomLeft, roomBottom, roomRight, roomBottom) -- Bottom
+        love.graphics.line(roomLeft, roomTop, roomLeft, roomBottom) -- Left
+        love.graphics.line(roomRight, roomTop, roomRight, roomBottom) -- Right
+        
+        -- Corner markers
+        love.graphics.setColor(1, 0.8, 0.2, 0.9)
+        love.graphics.rectangle("line", roomLeft, roomTop, 15, 15)
+        love.graphics.rectangle("line", roomRight - 15, roomTop, 15, 15)
+        love.graphics.rectangle("line", roomLeft, roomBottom - 15, 15, 15)
+        love.graphics.rectangle("line", roomRight - 15, roomBottom - 15, 15, 15)
+        
+        love.graphics.setLineWidth(1)
+        love.graphics.setColor(1, 1, 1)
+    end
+    
     -- Draw interaction prompts
     gameplay:drawInteractionPrompts()
 end
@@ -200,6 +232,21 @@ function gameplay:keypressed(key)
             local zoneId = nearHuntingZone.target or nearHuntingZone.name
             local blockedDay = Game.tigerBlockedAreas[zoneId]
             
+            print("🔍 DEBUG TIGER BLOCKING:")
+            print("  Current Day: " .. currentDay)
+            print("  Zone ID: " .. zoneId)
+            print("  Blocked Day: " .. tostring(blockedDay))
+            
+            -- Debug: print all blocked areas
+            local blockedCount = 0
+            for k, v in pairs(Game.tigerBlockedAreas or {}) do
+                print("  Blocked: " .. k .. " on day " .. v)
+                blockedCount = blockedCount + 1
+            end
+            if blockedCount == 0 then
+                print("  No areas currently blocked")
+            end
+            
             if blockedDay and blockedDay == currentDay then
                 -- Area is blocked! Show warning
                 print("═══════════════════════════════════════")
@@ -209,6 +256,8 @@ function gameplay:keypressed(key)
                 print("⏰ This area will be safe again tomorrow")
                 print("═══════════════════════════════════════")
                 return
+            else
+                print("✅ Area is OPEN (not blocked)")
             end
             
             print("🎯 Entering " .. nearHuntingZone.name .. " - First-Person Hunting!")
@@ -459,11 +508,20 @@ function gameplay:sleepInBed(playerEntity, daynightSystem)
     playerEntity.rest(100) -- Full stamina restore
     
     -- Advance to next day
+    local previousDay = daynightSystem.dayCount
+    daynightSystem.dayCount = daynightSystem.dayCount + 1
     daynightSystem.time = 0.25 -- Set to morning
+    
+    -- Clear tiger blocked areas on new day
+    if Game and Game.tigerBlockedAreas then
+        Game.tigerBlockedAreas = {}
+        print("🐅 Tiger blocked areas cleared for new day")
+    end
     
     print("💤 You sleep comfortably in your uncle's bed")
     print("❤️  Health and stamina fully restored!")
-    print("🌅 Dawn breaks - a new day begins...")
+    print("🌅 Day " .. previousDay .. " → Day " .. daynightSystem.dayCount)
+    print("🗓️  A new day begins!")
 end
 
 function gameplay:accessStorage()
