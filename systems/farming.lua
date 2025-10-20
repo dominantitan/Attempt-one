@@ -14,11 +14,11 @@ farming.soilQuality = 0.3
 farming.pestLevel = 0.4
 --]]
 
--- Crop definitions - HARDER for risk/reward balance (hunting should be more appealing)
+-- Crop definitions - Takes 2-3 in-game days to grow (1 day = 300 seconds)
 farming.cropTypes = {
     carrot = { 
-        growTime = 60, -- 1 minute (slower)
-        waterNeeded = 3, -- Needs watering 3 times (more work)
+        growTime = 600, -- 2 in-game days (10 real minutes)
+        waterNeeded = 1, -- Needs watering once per day
         value = 4, -- Lower value (less profit)
         --[[ HARDCORE MODE - COMMENTED OUT
         droughtTolerance = 0.2,
@@ -29,8 +29,8 @@ farming.cropTypes = {
         --]]
     },
     potato = { 
-        growTime = 90, -- 1.5 minutes (much slower)
-        waterNeeded = 4, -- Needs even more water
+        growTime = 750, -- 2.5 in-game days (12.5 real minutes)
+        waterNeeded = 1, -- Needs watering once per day
         value = 7, -- Lower value
         --[[ HARDCORE MODE - COMMENTED OUT
         droughtTolerance = 0.4,
@@ -41,8 +41,8 @@ farming.cropTypes = {
         --]]
     },
     mushroom = { 
-        growTime = 120, -- 2 minutes (very slow)
-        waterNeeded = 3,
+        growTime = 900, -- 3 in-game days (15 real minutes)
+        waterNeeded = 1, -- Needs watering once per day
         value = 10, -- Lower value
         --[[ HARDCORE MODE - COMMENTED OUT
         droughtTolerance = 0.1,
@@ -74,6 +74,9 @@ function farming.load()
                 y = farming.farmY + row * (farming.plotSize + farming.plotSpacing),
                 crop = nil,
                 waterLevel = 0,
+                wateredRecently = false, -- Visual indicator flag
+                wateredTime = 0, -- Time since last watered (for sparkle effect)
+                lastWateredDay = -1, -- Track which day it was last watered
                 --[[ HARDCORE MODE - COMMENTED OUT
                 soilQuality = 0.1 + math.random() * 0.2,
                 pestDamage = 0,
@@ -89,16 +92,41 @@ function farming.load()
 end
 
 function farming.update(dt)
+    -- Get current day for daily watering check
+    local daynightSystem = require("systems/daynight")
+    local currentDay = math.floor(daynightSystem.dayCount or 0)
+    
     -- Harder crop growth system - punishes under-watering more
     for i, plot in ipairs(farming.plots) do
         if plot.crop then
             local crop = plot.crop
             local cropType = farming.cropTypes[crop.type]
             
-            -- Harsh growth penalty without enough water
-            local growthSpeed = 1.0
-            if plot.waterLevel < cropType.waterNeeded then
-                growthSpeed = 0.1 -- MUCH slower without full water (was 0.3)
+            -- SIMPLIFIED DAILY WATERING: Just check if watered today
+            local wateredToday = (plot.lastWateredDay == currentDay)
+            
+            -- Growth speed calculation (simple: watered = grow, not watered = stop)
+            local growthSpeed = 0
+            
+            if wateredToday then
+                -- Watered today - normal growth at full speed
+                growthSpeed = 1.0
+                crop.needsWater = false
+            else
+                -- NOT watered today - crop stops growing completely!
+                growthSpeed = 0.0
+                crop.needsWater = true -- Flag for visual indicator
+            end
+            
+            -- Add growth with debug output every 5 seconds
+            if not crop.lastDebugTime then crop.lastDebugTime = 0 end
+            crop.lastDebugTime = crop.lastDebugTime + dt
+            
+            if crop.lastDebugTime >= 5 then
+                print(string.format("🌱 Crop growth: %.1fs/%.0fs (%.1f%%), Speed: %.1fx, Day: %d, Watered: %s",
+                    crop.growthTime, cropType.growTime, (crop.growthTime/cropType.growTime)*100,
+                    growthSpeed, currentDay, tostring(wateredToday)))
+                crop.lastDebugTime = 0
             end
             
             crop.growthTime = crop.growthTime + (dt * growthSpeed)
@@ -106,6 +134,15 @@ function farming.update(dt)
             -- Check if crop is ready to harvest
             if crop.growthTime >= cropType.growTime then
                 crop.ready = true
+            end
+        end
+        
+        -- Update watered sparkle effect timer
+        if plot.wateredRecently then
+            plot.wateredTime = plot.wateredTime + dt
+            if plot.wateredTime > 2.0 then -- Sparkle lasts 2 seconds
+                plot.wateredRecently = false
+                plot.wateredTime = 0
             end
         end
     end
@@ -188,27 +225,83 @@ function farming.draw()
             local centerX = x + farming.plotSize / 2
             local centerY = y + farming.plotSize / 2
             
-            if crop.ready then
-                -- Ready to harvest - bright green
+            -- Calculate growth stage (0-3) based on progress
+            local progress = crop.growthTime / cropType.growTime
+            local stage = math.floor(progress * 4) -- 0 = seed, 1 = sprout, 2 = growing, 3 = harvestable
+            if crop.ready then stage = 3 end
+            
+            if stage == 0 then
+                -- STAGE 1: Seed (brown dot)
+                love.graphics.setColor(0.4, 0.25, 0.1)
+                love.graphics.circle("fill", centerX, centerY, 3)
+            elseif stage == 1 then
+                -- STAGE 2: Sprout (small green with stem)
+                love.graphics.setColor(0.5, 0.7, 0.3)
+                love.graphics.circle("fill", centerX, centerY, 5)
+                -- Tiny stem
+                love.graphics.setColor(0.3, 0.5, 0.2)
+                love.graphics.rectangle("fill", centerX - 1, centerY, 2, 4)
+            elseif stage == 2 then
+                -- STAGE 3: Growing (larger green plant)
+                love.graphics.setColor(0.3, 0.7, 0.3)
+                love.graphics.circle("fill", centerX, centerY - 2, 8)
+                -- Leaves
+                love.graphics.setColor(0.2, 0.6, 0.2)
+                love.graphics.circle("fill", centerX - 4, centerY, 4)
+                love.graphics.circle("fill", centerX + 4, centerY, 4)
+            elseif stage == 3 then
+                -- STAGE 4: Harvestable (full plant with glow)
+                -- Outer glow
+                love.graphics.setColor(0.6, 1.0, 0.4, 0.3)
+                love.graphics.circle("fill", centerX, centerY, 14)
+                -- Main plant
                 love.graphics.setColor(0.2, 0.9, 0.2)
-                love.graphics.circle("fill", centerX, centerY, 12)
-            else
-                -- Growing - size shows progress
-                local progress = crop.growthTime / cropType.growTime
-                local size = 4 + (progress * 8)
-                love.graphics.setColor(0.3, 0.6, 0.2)
-                love.graphics.circle("fill", centerX, centerY, size)
+                love.graphics.circle("fill", centerX, centerY - 3, 10)
+                -- Fruit/produce indicators
+                love.graphics.setColor(0.9, 0.3, 0.2) -- Red fruits
+                love.graphics.circle("fill", centerX - 5, centerY - 2, 3)
+                love.graphics.circle("fill", centerX + 5, centerY - 2, 3)
+                love.graphics.circle("fill", centerX, centerY - 6, 3)
             end
             
-            -- Simple water level indicator
-            local statusY = y + farming.plotSize + 2
-            local waterPercent = math.min(1.0, plot.waterLevel / cropType.waterNeeded)
-            if waterPercent >= 1.0 then
-                love.graphics.setColor(0.2, 0.8, 1) -- Blue for watered
-            else
-                love.graphics.setColor(1, 0.4, 0.2) -- Orange for dry
+            -- NEEDS WATER WARNING (if not watered today)
+            if crop.needsWater then
+                local time = love.timer.getTime()
+                local pulse = 0.5 + (math.sin(time * 4) * 0.5) -- Pulse between 0 and 1
+                love.graphics.setColor(1, 0.2, 0.2, pulse) -- Red warning
+                love.graphics.circle("line", centerX, centerY, 16)
+                love.graphics.setLineWidth(2)
+                love.graphics.circle("line", centerX, centerY, 18)
+                love.graphics.setLineWidth(1)
             end
-            love.graphics.rectangle("fill", x, statusY, farming.plotSize * waterPercent, 3)
+            
+            -- Watered sparkle effect (blue sparkles for 2 seconds after watering)
+            if plot.wateredRecently then
+                local sparkleAlpha = 1.0 - (plot.wateredTime / 2.0) -- Fades over 2 seconds
+                love.graphics.setColor(0.3, 0.7, 1.0, sparkleAlpha * 0.8)
+                local time = love.timer.getTime()
+                -- Animated sparkles
+                for i = 1, 4 do
+                    local angle = (time * 3 + i * math.pi / 2) % (math.pi * 2)
+                    local dist = 8 + math.sin(time * 5 + i) * 3
+                    local sx = centerX + math.cos(angle) * dist
+                    local sy = centerY + math.sin(angle) * dist
+                    love.graphics.circle("fill", sx, sy, 2)
+                end
+            end
+            
+            -- Simple water indicator (watered today = blue, needs water = orange)
+            local statusY = y + farming.plotSize + 2
+            local daynightSystem = require("systems/daynight")
+            local currentDay = math.floor(daynightSystem.dayCount or 0)
+            local wateredToday = (plot.lastWateredDay == currentDay)
+            
+            if wateredToday then
+                love.graphics.setColor(0.2, 0.8, 1) -- Blue for watered today
+            else
+                love.graphics.setColor(1, 0.4, 0.2) -- Orange for needs watering
+            end
+            love.graphics.rectangle("fill", x, statusY, farming.plotSize, 3)
         else
             -- Empty plot
             love.graphics.setColor(0.5, 0.5, 0.5, 0.3)
@@ -284,10 +377,15 @@ function farming.plantSeed(x, y, seedType)
         type = seedType,
         growthTime = 0,
         planted = true,
-        ready = false
+        ready = false,
+        needsWater = true -- Needs water immediately after planting
     }
     
+    -- Initialize watering tracking for this plot (NOT watered yet!)
+    plot.lastWateredDay = -1 -- Force to -1 so it needs watering
+    
     print("🌱 Planted " .. seedType)
+    print("💧 Water it now or it won't grow!")
     return true, "Planted " .. seedType
     
     --[[ HARDCORE MODE - COMMENTED OUT FOR MVP
@@ -331,8 +429,18 @@ function farming.harvestCrop(x, y)
         return nil, 0, "Not ready - " .. string.format("%.0f", timeLeft) .. "s left " .. waterStatus
     end
     
-    -- Low yields (farming is barely profitable)
-    local yield = math.random(1, 2) -- Only 1-2 crops per harvest
+    -- Better yields with different amounts per crop type
+    local yield
+    if crop.type == "carrot" then
+        yield = math.random(2, 4) -- 2-4 carrots
+    elseif crop.type == "potato" then
+        yield = math.random(3, 5) -- 3-5 potatoes (slow but good yield)
+    elseif crop.type == "mushroom" then
+        yield = math.random(2, 3) -- 2-3 mushrooms (valuable but slow)
+    else
+        yield = math.random(1, 2) -- Default for unknown types
+    end
+    
     local totalValue = yield * cropType.value
     
     -- Clear plot for next planting
@@ -378,13 +486,31 @@ function farming.waterCrop(x, y)
         return false, "No crop to water"
     end
     
-    local cropType = farming.cropTypes[plot.crop.type]
+    -- Get current day
+    local daynightSystem = require("systems/daynight")
+    local currentDay = math.floor(daynightSystem.dayCount or 0)
     
-    -- Add water to plot
-    plot.waterLevel = plot.waterLevel + 1
+    -- Check if already watered today
+    if plot.lastWateredDay == currentDay then
+        return false, "Already watered today! (Day " .. currentDay .. ")"
+    end
     
-    local status = plot.waterLevel >= cropType.waterNeeded and "✓ Fully watered!" or "Needs more"
-    return true, "Watered (" .. plot.waterLevel .. "/" .. cropType.waterNeeded .. ") " .. status
+    -- Track that this plot was watered today
+    plot.lastWateredDay = currentDay
+    
+    -- Clear the needs water flag
+    if plot.crop then
+        plot.crop.needsWater = false
+    end
+    
+    -- Trigger sparkle effect
+    plot.wateredRecently = true
+    plot.wateredTime = 0
+    
+    -- Debug output
+    print("💧 Watered plot on Day " .. currentDay .. "! Crop will now grow.")
+    
+    return true, "✓ Watered for today! (Day " .. currentDay .. ")"
     
     --[[ HARDCORE MODE - COMMENTED OUT FOR MVP
     -- Weather-affected watering

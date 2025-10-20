@@ -43,7 +43,7 @@ foraging.wildCropTypes = {
 foraging.activeCrops = {}
 
 -- Spawn settings
-foraging.dailySpawnCount = {min = 2, max = 4}
+foraging.dailySpawnCount = {min = 1, max = 2}
 foraging.lastSpawnDay = -1
 
 -- Forest boundaries (avoid spawning on structures)
@@ -196,25 +196,43 @@ end
 
 -- Draw wild crops on the map
 function foraging.draw()
+    -- Pulsing glow effect (sine wave for smooth animation)
+    local time = love.timer.getTime()
+    local pulse = 0.3 + (math.sin(time * 3) * 0.15) -- Oscillates between 0.15 and 0.45
+    local glowPulse = 0.6 + (math.sin(time * 2) * 0.3) -- Glow ring pulse
+    
     for _, crop in ipairs(foraging.activeCrops) do
         if not crop.collected then
-            -- Draw crop based on type
+            -- Set color based on crop type
+            local r, g, b = 1, 1, 1
             if crop.type.name == "Wild Berries" then
-                love.graphics.setColor(0.4, 0.1, 0.8) -- Purple berries
+                r, g, b = 0.4, 0.1, 0.8 -- Purple berries
             elseif crop.type.name == "Mushrooms" then
-                love.graphics.setColor(0.6, 0.4, 0.2) -- Brown mushrooms
+                r, g, b = 0.6, 0.4, 0.2 -- Brown mushrooms
             elseif crop.type.name == "Wild Herbs" then
-                love.graphics.setColor(0.2, 0.8, 0.3) -- Green herbs
+                r, g, b = 0.2, 0.8, 0.3 -- Green herbs
             elseif crop.type.name == "Pine Nuts" then
-                love.graphics.setColor(0.5, 0.3, 0.1) -- Brown nuts
+                r, g, b = 0.5, 0.3, 0.1 -- Brown nuts
             end
             
-            -- Draw small circle for the crop
+            -- Draw outer glow ring (pulsing)
+            love.graphics.setColor(r, g, b, pulse * 0.4)
+            love.graphics.circle("fill", crop.x, crop.y, 12)
+            
+            -- Draw middle glow
+            love.graphics.setColor(r, g, b, pulse * 0.7)
+            love.graphics.circle("fill", crop.x, crop.y, 9)
+            
+            -- Draw main crop circle
+            love.graphics.setColor(r, g, b, 1.0)
             love.graphics.circle("fill", crop.x, crop.y, 6)
             
-            -- Draw highlight circle
-            love.graphics.setColor(1, 1, 1, 0.6)
+            -- Draw bright highlight circle (pulsing)
+            love.graphics.setColor(1, 1, 1, glowPulse)
             love.graphics.circle("line", crop.x, crop.y, 8)
+            love.graphics.setLineWidth(2)
+            love.graphics.circle("line", crop.x, crop.y, 10)
+            love.graphics.setLineWidth(1)
         end
     end
     

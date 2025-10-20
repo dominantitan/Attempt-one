@@ -226,9 +226,10 @@ function love.update(dt)
         if farmingSystem and farmingSystem.update then
             farmingSystem.update(dt)
         end
-        if cropsEntity and cropsEntity.update then
-            cropsEntity.update(dt)
-        end
+        -- DISABLED OLD FARMING SYSTEM - Using systems/farming.lua instead
+        -- if cropsEntity and cropsEntity.update then
+        --     cropsEntity.update(dt)
+        -- end
     end
     
     -- Update entities (handled per-area now)
@@ -256,7 +257,8 @@ function love.draw()
     if areas.currentArea == "main_world" then
         worldSystem.draw()
         farmingSystem.draw()
-        cropsEntity.draw()
+        -- DISABLED OLD FARMING SYSTEM - Using systems/farming.lua instead
+        -- cropsEntity.draw()
         foragingSystem.draw()
         -- shopkeeperEntity.draw() -- Removed - shopkeeper position conflicts with hunting zone
     end

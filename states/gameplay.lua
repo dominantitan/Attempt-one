@@ -305,8 +305,8 @@ function gameplay:keypressed(key)
             elseif key == "e" and nearStructure.interaction == "farming" then
                 print("🌾 E pressed at farm! Player at (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
                 gameplay:farmingAction(playerSystem.x, playerSystem.y)
-            elseif key == "q" and nearStructure.interaction == "farming" then
-                print("💧 Q pressed at farm! Player at (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
+            elseif (key == "q" or key == "w") and nearStructure.interaction == "farming" then
+                print("💧 " .. string.upper(key) .. " pressed at farm! Player at (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
                 gameplay:waterCrops(playerSystem.x, playerSystem.y)
             elseif key == "b" and nearStructure.interaction == "railway_shop" then
                 print("🛒 Opening shop...")
@@ -331,10 +331,12 @@ function gameplay:keypressed(key)
         elseif key == "r" then
             -- Try to forage wild crops
             gameplay:forageCrop(playerSystem.x, playerSystem.y)
+            return
         elseif key == "t" then
             -- Debug: Force spawn wild crops for testing
             local foragingSystem = require("systems/foraging")
             foragingSystem.forceSpawn()
+            return
         end
     end
 end
@@ -507,8 +509,39 @@ function gameplay:sleepInBed(playerEntity, daynightSystem)
     playerEntity.heal(100) -- Full heal in bed
     playerEntity.rest(100) -- Full stamina restore
     
-    -- Advance to next day
+    -- Calculate time remaining in current day (for crop growth)
     local previousDay = daynightSystem.dayCount
+    local currentTime = daynightSystem.time
+    local timeUntilMidnight = 1.0 - currentTime -- Time left in current day
+    local sleepTimeInSeconds = timeUntilMidnight * daynightSystem.dayLength -- Convert to seconds
+    
+    -- Apply growth to watered crops BEFORE advancing day
+    local farmingSystem = require("systems/farming")
+    if farmingSystem and farmingSystem.plots then
+        for i, plot in ipairs(farmingSystem.plots) do
+            if plot.crop and not plot.crop.ready then
+                -- Check if this crop was watered TODAY (before sleeping)
+                local wateredToday = (plot.lastWateredDay == previousDay)
+                
+                if wateredToday then
+                    -- Crop was watered today, so it grows during sleep
+                    local cropType = farmingSystem.cropTypes[plot.crop.type]
+                    plot.crop.growthTime = plot.crop.growthTime + sleepTimeInSeconds
+                    
+                    -- Check if now ready
+                    if plot.crop.growthTime >= cropType.growTime then
+                        plot.crop.ready = true
+                        print("🌾 Your " .. plot.crop.type .. " finished growing while you slept!")
+                    end
+                else
+                    -- Crop was NOT watered today, no growth during sleep
+                    print("🚫 Unwatered " .. (plot.crop.type or "crop") .. " didn't grow while you slept")
+                end
+            end
+        end
+    end
+    
+    -- Advance to next day
     daynightSystem.dayCount = daynightSystem.dayCount + 1
     daynightSystem.time = 0.25 -- Set to morning
     
