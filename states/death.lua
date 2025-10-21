@@ -3,8 +3,11 @@
 
 local death = {}
 
-function death:enter()
+function death:enter(from, deathCause)
     print("💀 Death screen entered")
+    
+    -- Store death cause (default is tiger)
+    death.cause = deathCause or "tiger"
     
     -- Get day counter for score
     local daynightSystem = require("systems/daynight")
@@ -28,12 +31,18 @@ function death:draw()
     love.graphics.setNewFont(48)
     love.graphics.printf("YOU DIED", 0, 100, 960, "center")
     
-    -- Tiger emoji and message
+    -- Death message based on cause
     love.graphics.setColor(1, 1, 1)
     love.graphics.setNewFont(32)
-    love.graphics.printf("🐅", 0, 180, 960, "center")
-    love.graphics.setNewFont(24)
-    love.graphics.printf("The tiger caught you!", 0, 240, 960, "center")
+    if death.cause == "snake" then
+        love.graphics.printf("🐍", 0, 180, 960, "center")
+        love.graphics.setNewFont(24)
+        love.graphics.printf("The water snake bit you!", 0, 240, 960, "center")
+    else
+        love.graphics.printf("🐅", 0, 180, 960, "center")
+        love.graphics.setNewFont(24)
+        love.graphics.printf("The tiger caught you!", 0, 240, 960, "center")
+    end
     
     -- Days survived
     love.graphics.setColor(1, 1, 0.5)

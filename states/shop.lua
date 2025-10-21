@@ -27,6 +27,9 @@ shop.items = {
     {name = "Shotgun", type = "shotgun_weapon", price = 350, sellPrice = 80, description = "Spread shot hunter (one-time purchase)"},
     {name = "Shotgun Shells (10x)", type = "shells", price = 30, sellPrice = 2, description = "Ammo for shotgun"},
     
+    -- FISHING EQUIPMENT
+    {name = "Fishing Net", type = "fishingNet", price = 50, sellPrice = 10, description = "Catch multiple fish at once! (one-time purchase)"},
+    
     --[[ FUTURE FEATURES - COMMENTED OUT FOR MVP
     {name = "Soil Fertilizer", type = "fertilizer", price = 30, sellPrice = 3, description = "Improves soil quality"},
     {name = "Pesticide", type = "pesticide", price = 35, sellPrice = 4, description = "Reduces pest damage"},
@@ -50,6 +53,13 @@ shop.buyPrices = {
     berries = 6,
     herbs = 8,
     nuts = 5,
+    
+    -- FISHING (MEDIUM-HIGH value - skill-based income!)
+    small_fish = 5,
+    bass = 12,
+    catfish = 20,
+    rare_trout = 35,
+    snake_skin = 15,
     
     -- HUNTING (HIGH value - risk = reward!)
     rabbit_meat = 15,    -- Low risk, decent reward

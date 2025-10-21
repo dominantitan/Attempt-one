@@ -112,6 +112,15 @@ function gameplay:drawInteractionPrompts()
         end
     end
     
+    -- Check for fishing zones (circular areas on map)
+    if currentArea.type == "overworld" and currentArea.fishingZones then
+        local nearFishingZone = areas.getPlayerNearFishingZone(playerSystem.x, playerSystem.y)
+        if nearFishingZone then
+            love.graphics.setColor(0.3, 0.7, 0.9)
+            love.graphics.print("🎣 " .. nearFishingZone.name .. ": Press ENTER to fish", 10, love.graphics.getHeight() - 20)
+        end
+    end
+    
     -- Check for main world structures (railway station, etc.)
     if currentArea.type == "overworld" then
         local worldSystem = require("systems/world")
@@ -121,7 +130,7 @@ function gameplay:drawInteractionPrompts()
             if nearStructure.interaction == "railway_shop" then
                 prompt = "🚂 Railway Station: Press B to BUY/SELL | Press E to examine"
             elseif nearStructure.interaction == "fishing" then
-                prompt = "🎣 Pond: Press F to fish | Press G to get FREE water (5x)"
+                prompt = "🎣 Pond: Press G to get FREE water (5x)"
             elseif nearStructure.interaction == "farming" then
                 prompt = "🌾 Farm Plot: Press E to plant/harvest | Press Q to water (NOT W!)"
             end
@@ -265,8 +274,15 @@ function gameplay:keypressed(key)
             -- Pass the zone ID to the hunting state
             gamestate.switch("hunting", zoneId)
             return
-        else
-            print("🔍 DEBUG: Not near any hunting zone. Walk to Northwestern Woods (130, 130)")
+        end
+        
+        -- Check for fishing zones
+        local nearFishingZone = areas.getPlayerNearFishingZone(playerSystem.x, playerSystem.y)
+        if nearFishingZone then
+            print("🎣 Entering " .. nearFishingZone.name .. " - Top-Down Fishing!")
+            local zoneId = nearFishingZone.target or nearFishingZone.name
+            gamestate.switch("fishing", zoneId)
+            return
         end
     end
     
@@ -298,9 +314,7 @@ function gameplay:keypressed(key)
         local nearStructure, structureName = worldSystem.getPlayerStructure(playerSystem.x, playerSystem.y)
         
         if nearStructure then
-            if key == "f" and nearStructure.interaction == "fishing" then
-                gameplay:goFishing(playerEntity)
-            elseif key == "g" and nearStructure.interaction == "fishing" then
+            if key == "g" and nearStructure.interaction == "fishing" then
                 gameplay:waterFromPond()
             elseif key == "e" and nearStructure.interaction == "farming" then
                 print("🌾 E pressed at farm! Player at (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
@@ -353,18 +367,7 @@ function gameplay:sleepInCabin(playerEntity, daynightSystem)
     print("🌅 A new day begins...")
 end
 
-function gameplay:goFishing(playerEntity)
-    -- Simple fishing mechanic
-    local success = math.random() < 0.6 -- 60% success rate
-    
-    if success then
-        local fishCaught = math.random(1, 3)
-        playerEntity.addItem("fish", fishCaught)
-        print("🐟 Caught " .. fishCaught .. " fish")
-    else
-        print("🎣 Fish got away")
-    end
-end
+-- OLD goFishing() function REMOVED - using new fishing mini-game state instead
 
 function gameplay:waterFromPond()
     local playerEntity = require("entities/player")

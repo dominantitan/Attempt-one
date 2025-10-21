@@ -214,6 +214,7 @@ ESC: Exit fishing area
 - Ripples where fish surface
 - Shadows darker in deep areas
 - Light reflections (shimmer effect)
+- two legs in the pond 
 
 **Depth Zones:**
 - Shallow (edges): Light blue, small fish

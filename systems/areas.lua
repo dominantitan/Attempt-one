@@ -26,6 +26,9 @@ areas.definitions = {
             {x = 830, y = 130, radius = 80, target = "hunting_northeast", name = "Northeastern Grove"},
             {x = 830, y = 410, radius = 80, target = "hunting_southeast", name = "Southeastern Wilderness"}
         },
+        fishingZones = {
+            {x = 630, y = 480, radius = 60, target = "fishing_pond", name = "Pond"}
+        },
         structures = {
             {x = 130, y = 410, width = 120, height = 80, type = "railway_station", interaction = "mystery", name = "Old Railway Station"}
         }
@@ -117,6 +120,23 @@ areas.definitions = {
         animalCount = {min = 4, max = 6},
         dangerLevel = 0.8,
         boundaries = {x = 200, y = 200, radius = 180}
+    },
+    
+    fishing_pond = {
+        name = "Pond",
+        width = 800,
+        height = 600,
+        type = "fishing_area",
+        music = "pond_ambient",
+        lighting = "pond_water",
+        playerSpawn = {x = 400, y = 550}, -- Bottom center (standing in water)
+        exits = {
+            {x = 380, y = 580, width = 40, height = 20, target = "main_world", targetPos = {x = 630, y = 480}, prompt = "Press ENTER to leave pond"}
+        },
+        fishTypes = {"small_fish", "bass", "catfish", "rare_trout"},
+        fishCount = {min = 5, max = 8}, -- Reduced from 15 to 5-8
+        snakeDangerLevel = 0.6, -- 60% chance to spawn snake
+        boundaries = {x = 400, y = 300, radius = 280} -- Circular pond boundary
     }
 }
 
@@ -174,6 +194,23 @@ function areas.getPlayerNearHuntingZone(playerX, playerY)
         local distance = math.sqrt((playerX - zone.x)^2 + (playerY - zone.y)^2)
         -- FIXED: Detect entire circle (0 to radius+30), not just a ring
         -- This allows entry from anywhere inside or near the zone
+        if distance <= zone.radius + 30 then
+            return zone
+        end
+    end
+    
+    return nil
+end
+
+-- Check if player is near fishing zone (main world only)
+function areas.getPlayerNearFishingZone(playerX, playerY)
+    if areas.currentArea ~= "main_world" then return nil end
+    
+    local currentArea = areas.getCurrentArea()
+    if not currentArea.fishingZones then return nil end
+    
+    for _, zone in ipairs(currentArea.fishingZones) do
+        local distance = math.sqrt((playerX - zone.x)^2 + (playerY - zone.y)^2)
         if distance <= zone.radius + 30 then
             return zone
         end

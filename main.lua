@@ -49,12 +49,14 @@ local gameplay = require("states/gameplay")
 local inventory = require("states/inventory")
 local shop = require("states/shop")
 local hunting = require("states/hunting")
+local fishing = require("states/fishing")
 local death = require("states/death")
 
 gamestate.register("gameplay", gameplay)
 gamestate.register("inventory", inventory)
 gamestate.register("shop", shop)
 gamestate.register("hunting", hunting)
+gamestate.register("fishing", fishing)
 gamestate.register("death", death)
 
 -- Core systems
