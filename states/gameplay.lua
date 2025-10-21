@@ -123,7 +123,7 @@ function gameplay:drawInteractionPrompts()
             elseif nearStructure.interaction == "fishing" then
                 prompt = "🎣 Pond: Press F to fish | Press G to get FREE water (5x)"
             elseif nearStructure.interaction == "farming" then
-                prompt = "🌾 Farm Plot: Press E to plant/harvest | Press Q to water"
+                prompt = "🌾 Farm Plot: Press E to plant/harvest | Press Q to water (NOT W!)"
             end
             
             if prompt ~= "" then
@@ -278,7 +278,7 @@ function gameplay:keypressed(key)
                 gameplay:sleepInBed(playerEntity, daynightSystem)
             elseif key == "c" and nearFurniture.interaction == "storage" then
                 gameplay:accessStorage()
-            elseif key == "s" and nearFurniture.interaction == "shop" then
+            elseif key == "x" and nearFurniture.interaction == "shop" then
                 gamestate.switch("shop")
             elseif key == "e" and nearFurniture.interaction == "examine" then
                 gameplay:examineItem(nearFurniture)
@@ -305,8 +305,8 @@ function gameplay:keypressed(key)
             elseif key == "e" and nearStructure.interaction == "farming" then
                 print("🌾 E pressed at farm! Player at (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
                 gameplay:farmingAction(playerSystem.x, playerSystem.y)
-            elseif (key == "q" or key == "w") and nearStructure.interaction == "farming" then
-                print("💧 " .. string.upper(key) .. " pressed at farm! Player at (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
+            elseif key == "q" and nearStructure.interaction == "farming" then
+                print("💧 Q pressed at farm! Player at (" .. playerSystem.x .. ", " .. playerSystem.y .. ")")
                 gameplay:waterCrops(playerSystem.x, playerSystem.y)
             elseif key == "b" and nearStructure.interaction == "railway_shop" then
                 print("🛒 Opening shop...")

@@ -92,10 +92,15 @@ function death:restart()
     daynightSystem.time = 0.25 -- Morning (6 AM)
     daynightSystem.dayCount = 0 -- Start at 0, will become 1 at midnight
     
-    -- Reset crops
-    local cropsEntity = require("entities/crops")
-    if cropsEntity.planted then
-        cropsEntity.planted = {}
+    -- Reset farming system (new plot-based system)
+    local farmingSystem = require("systems/farming")
+    if farmingSystem.plots then
+        for i, plot in ipairs(farmingSystem.plots) do
+            plot.crop = nil
+            plot.lastWateredDay = -1
+            plot.wateredRecently = false
+            plot.wateredTime = 0
+        end
     end
     
     -- Reset foraging

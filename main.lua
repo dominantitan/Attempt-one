@@ -69,7 +69,7 @@ local foragingSystem = require("systems/foraging")
 -- Entities
 local playerEntity = require("entities/player")
 local animalsEntity = require("entities/animals")
-local cropsEntity = require("entities/crops")
+-- cropsEntity REMOVED - Using systems/farming.lua instead
 local shopkeeperEntity = require("entities/shopkeeper")
 
 -- Utilities
@@ -343,6 +343,10 @@ end
 function love.focus(focused)
     if not focused then
         Game.paused = true
+        print("⏸️ Window lost focus - game paused")
+    else
+        Game.paused = false
+        print("▶️ Window regained focus - game resumed")
     end
 end
 

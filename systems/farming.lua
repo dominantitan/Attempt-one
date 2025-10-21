@@ -290,20 +290,30 @@ function farming.draw()
                 end
             end
             
-            -- Simple water indicator (watered today = blue, needs water = orange)
+            -- Water indicator ONLY for planted crops
             local statusY = y + farming.plotSize + 2
             local daynightSystem = require("systems/daynight")
             local currentDay = math.floor(daynightSystem.dayCount or 0)
             local wateredToday = (plot.lastWateredDay == currentDay)
             
-            if wateredToday then
-                love.graphics.setColor(0.2, 0.8, 1) -- Blue for watered today
-            else
-                love.graphics.setColor(1, 0.4, 0.2) -- Orange for needs watering
+            -- DEBUG: Print water status for debugging
+            if plot.crop and not plot.crop._debugPrinted then
+                print(string.format("🔍 VISUAL DEBUG: Plot lastWateredDay=%d, currentDay=%d, wateredToday=%s", 
+                    plot.lastWateredDay or -999, currentDay, tostring(wateredToday)))
+                plot.crop._debugPrinted = true
             end
-            love.graphics.rectangle("fill", x, statusY, farming.plotSize, 3)
+            
+            -- Only show water bar if there's actually a crop planted
+            if plot.crop then
+                if wateredToday then
+                    love.graphics.setColor(0.2, 0.8, 1) -- Blue for watered today
+                else
+                    love.graphics.setColor(1, 0.4, 0.2) -- Orange for needs watering
+                end
+                love.graphics.rectangle("fill", x, statusY, farming.plotSize, 3)
+            end
         else
-            -- Empty plot
+            -- Empty plot - no visual indicator
             love.graphics.setColor(0.5, 0.5, 0.5, 0.3)
             love.graphics.circle("line", x + farming.plotSize/2, y + farming.plotSize/2, 8)
         end
@@ -382,6 +392,7 @@ function farming.plantSeed(x, y, seedType)
     }
     
     -- Initialize watering tracking for this plot (NOT watered yet!)
+    print("🔍 DEBUG: Planting - Setting lastWateredDay to -1 (Day is " .. (require("systems/daynight").dayCount or 0) .. ")")
     plot.lastWateredDay = -1 -- Force to -1 so it needs watering
     
     print("🌱 Planted " .. seedType)
@@ -496,6 +507,7 @@ function farming.waterCrop(x, y)
     end
     
     -- Track that this plot was watered today
+    print("🔍 DEBUG: Setting lastWateredDay from " .. (plot.lastWateredDay or "nil") .. " to " .. currentDay)
     plot.lastWateredDay = currentDay
     
     -- Clear the needs water flag

@@ -100,7 +100,7 @@ function shop:draw()
     lg.setColor(shop.mode == "buy" and 0.8 or 0.4, shop.mode == "buy" and 1 or 0.4, shop.mode == "buy" and 0.8 or 0.4)
     lg.print("[B] BUY", 60, 160)
     lg.setColor(shop.mode == "sell" and 0.8 or 0.4, shop.mode == "sell" and 1 or 0.4, shop.mode == "sell" and 0.8 or 0.4)
-    lg.print("[S] SELL", 150, 160)
+    lg.print("[V] SELL", 150, 160)
     
     if shop.mode == "buy" then
         -- Show items for sale
@@ -162,7 +162,7 @@ function shop:draw()
             lg.print("No items to sell - go farm or hunt!", 80, y)
         else
             lg.setColor(1, 0.8, 0.2)
-            lg.print("[A] Sell ALL items at once", 80, y + 20)
+            lg.print("[L] Liquidate (Sell ALL items at once)", 80, y + 20)
         end
     end
     
@@ -187,7 +187,7 @@ function shop:keypressed(key)
         shop.mode = "buy"
         shop.selectedItem = 1
         
-    elseif key == "s" then
+    elseif key == "v" then
         shop.mode = "sell"
         
     elseif shop.mode == "buy" then
@@ -214,8 +214,8 @@ function shop:keypressed(key)
         if num and shop.sellableItems and shop.sellableItems[num] then
             local item = shop.sellableItems[num]
             shop:sellItem(item.type)
-        elseif key == "a" then
-            -- Sell all items
+        elseif key == "l" then
+            -- Sell all items (L for "Liquidate")
             shop:sellAllItems()
         end
     end

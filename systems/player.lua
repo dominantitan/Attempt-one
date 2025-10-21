@@ -21,6 +21,11 @@ function player.load()
 end
 
 function player.update(dt)
+    -- Don't update if game is paused
+    if Game and Game.paused then
+        return
+    end
+    
     local dx, dy = 0, 0
     
     -- WASD movement
