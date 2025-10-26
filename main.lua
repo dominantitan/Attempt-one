@@ -248,60 +248,82 @@ function love.update(dt)
 end
 
 function love.draw()
-    -- Apply camera transformation
-    if Game.camera.apply then
-        Game.camera:apply()
+    -- Check if we're in a dedicated mini-game state (hunting, fishing, death)
+    -- or UI state (inventory, shop) that should overlay everything
+    -- These states handle their own complete rendering and don't need world underneath
+    local currentStateName = nil
+    for name, state in pairs(gamestate.states) do
+        if state == gamestate.current then
+            currentStateName = name
+            break
+        end
     end
     
-    -- Area system handles drawing area-specific elements
-    -- Only draw main world elements if in main world
-    local areas = require("systems/areas")
-    if areas.currentArea == "main_world" then
-        worldSystem.draw()
-        farmingSystem.draw()
-        -- DISABLED OLD FARMING SYSTEM - Using systems/farming.lua instead
-        -- cropsEntity.draw()
-        foragingSystem.draw()
-        -- shopkeeperEntity.draw() -- Removed - shopkeeper position conflicts with hunting zone
+    local isFullscreenState = currentStateName == "hunting" or 
+                             currentStateName == "fishing" or 
+                             currentStateName == "death" or
+                             currentStateName == "inventory" or
+                             currentStateName == "shop"
+    
+    -- Only draw world/camera if we're in normal gameplay, not mini-games
+    if not isFullscreenState then
+        -- Apply camera transformation
+        if Game.camera.apply then
+            Game.camera:apply()
+        end
+        
+        -- Area system handles drawing area-specific elements
+        -- Only draw main world elements if in main world
+        local areas = require("systems/areas")
+        if areas.currentArea == "main_world" then
+            worldSystem.draw()
+            farmingSystem.draw()
+            -- DISABLED OLD FARMING SYSTEM - Using systems/farming.lua instead
+            -- cropsEntity.draw()
+            foragingSystem.draw()
+            -- shopkeeperEntity.draw() -- Removed - shopkeeper position conflicts with hunting zone
+        end
+        
+        -- Remove camera transformation
+        if Game.camera.unapply then
+            Game.camera:unapply()
+        end
+        
+        -- Draw day/night overlay (only for gameplay)
+        daynightSystem.draw()
     end
     
-    -- Remove camera transformation
-    if Game.camera.unapply then
-        Game.camera:unapply()
-    end
-    
-    -- Draw day/night overlay
-    daynightSystem.draw()
-    
-    -- Draw current game state (includes area rendering)
+    -- Draw current game state (mini-games draw themselves completely)
     gamestate.draw()
     
-    -- Draw UI overlay
-    love.graphics.setColor(1, 1, 1)
-    
-    -- Clean UI panel at top-right (essential info only)
-    local rightX = love.graphics.getWidth() - 180
-    love.graphics.print("💰 $" .. playerEntity.inventory.money, rightX, 10)
-    love.graphics.print("❤️  " .. math.floor(playerEntity.health) .. "/" .. playerEntity.maxHealth, rightX, 30)
-    love.graphics.print("🕐 " .. daynightSystem.getTimeString(), rightX, 50)
-    
-    -- Inventory hint (press I to open)
-    love.graphics.setColor(0.7, 0.7, 0.7)
-    love.graphics.print("Press [I] for inventory", 10, 10)
-    
-    -- Draw debug info (toggle with F3)
-    if Game.debug then
-        love.graphics.setColor(0.8, 0.8, 0.8)
-        love.graphics.print("DEBUG MODE", love.graphics.getWidth() - 100, 30)
-        love.graphics.print("FPS: " .. love.timer.getFPS(), love.graphics.getWidth() - 100, 50)
-        love.graphics.print("Player: " .. math.floor(playerSystem.x) .. ", " .. math.floor(playerSystem.y), love.graphics.getWidth() - 100, 70)
-        love.graphics.print("Libraries: " .. (librariesLoaded and "✓" or "✗"), love.graphics.getWidth() - 100, 90)
+    -- Draw UI overlay (only for normal gameplay, not mini-games)
+    if not isFullscreenState then
+        love.graphics.setColor(1, 1, 1)
+        
+        -- Clean UI panel at top-right (essential info only)
+        local rightX = love.graphics.getWidth() - 180
+        love.graphics.print("💰 $" .. playerEntity.inventory.money, rightX, 10)
+        love.graphics.print("❤️  " .. math.floor(playerEntity.health) .. "/" .. playerEntity.maxHealth, rightX, 30)
+        love.graphics.print("🕐 " .. daynightSystem.getTimeString(), rightX, 50)
+        
+        -- Inventory hint (press I to open)
+        love.graphics.setColor(0.7, 0.7, 0.7)
+        love.graphics.print("Press [I] for inventory", 10, 10)
+        
+        -- Draw debug info (toggle with F3)
+        if Game.debug then
+            love.graphics.setColor(0.8, 0.8, 0.8)
+            love.graphics.print("DEBUG MODE", love.graphics.getWidth() - 100, 30)
+            love.graphics.print("FPS: " .. love.timer.getFPS(), love.graphics.getWidth() - 100, 50)
+            love.graphics.print("Player: " .. math.floor(playerSystem.x) .. ", " .. math.floor(playerSystem.y), love.graphics.getWidth() - 100, 70)
+            love.graphics.print("Libraries: " .. (librariesLoaded and "✓" or "✗"), love.graphics.getWidth() - 100, 90)
+        end
+        
+        -- Draw asset map overlay (toggle with F4)
+        assetMap.draw()
+        
+        love.graphics.setColor(1, 1, 1)
     end
-    
-    -- Draw asset map overlay (toggle with F4)
-    assetMap.draw()
-    
-    love.graphics.setColor(1, 1, 1)
 end
 
 function love.keypressed(key)
