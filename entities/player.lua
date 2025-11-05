@@ -3,9 +3,7 @@
 
 local player = {}
 
--- Player stats
-player.health = 100
-player.maxHealth = 100
+-- Player stats (SIMPLIFIED - removed health for MVP)
 player.stamina = 100
 player.maxStamina = 100
 player.hunger = 100
@@ -50,24 +48,14 @@ function player.update(dt)
     -- Check status conditions
     player.isHungry = player.hunger < 30
     player.isTired = player.stamina < 20
-    player.isDead = player.health <= 0
+    -- No death system for MVP
     
     -- Clamp values
-    player.health = math.max(0, math.min(player.maxHealth, player.health))
     player.hunger = math.max(0, math.min(player.maxHunger, player.hunger))
     player.stamina = math.max(0, math.min(player.maxStamina, player.stamina))
 end
 
-function player.takeDamage(amount)
-    player.health = player.health - amount
-    if player.health <= 0 then
-        player.isDead = true
-    end
-end
-
-function player.heal(amount)
-    player.health = math.min(player.maxHealth, player.health + amount)
-end
+-- Removed takeDamage and heal functions (no health system in MVP)
 
 function player.eat(nutritionValue)
     player.hunger = math.min(player.maxHunger, player.hunger + nutritionValue)

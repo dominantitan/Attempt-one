@@ -86,7 +86,9 @@ Game = {
     world = nil,
     player = playerEntity,
     paused = false,
-    debug = false
+    debug = false,
+    cameraEnabled = true,  -- Toggle with F6 for debugging
+    previousCameraState = true -- Track camera state changes
 }
 
 function love.load()
@@ -103,9 +105,13 @@ function love.load()
     librariesLoaded = loadLibraries()
     
     -- Initialize camera (use hump.camera if available, otherwise custom)
+    -- Camera should start at player's initial position (570, 1350)
     if Camera then
-        Game.camera = Camera(GAME_WIDTH/2, GAME_HEIGHT/2)
-        print("✓ Using hump.camera")
+        -- Initialize camera at player's center position
+        local playerStartX = 570 + 24  -- player.x + (player.width / 2)
+        local playerStartY = 1350 + 24 -- player.y + (player.height / 2)
+        Game.camera = Camera(playerStartX, playerStartY)
+        print("✓ Using hump.camera at player position (" .. playerStartX .. ", " .. playerStartY .. ")")
     else
         cameraUtil.load()
         Game.camera = cameraUtil
@@ -237,13 +243,59 @@ function love.update(dt)
     -- Update entities (handled per-area now)
     playerEntity.update(dt)
     
-    -- Update camera to follow player
+    -- Update camera to follow player (Stardew Valley style - smooth lerp)
     -- IMPROVED: Nil-safety for camera position
-    if Game.camera.update then
-        Game.camera:update(dt)
-    end
-    if Game.camera.setTarget and playerSystem.x and playerSystem.y then
-        Game.camera:setTarget({x = playerSystem.x, y = playerSystem.y})
+    if Game.cameraEnabled then
+        -- Check if camera was just enabled (state change)
+        if Game.previousCameraState ~= Game.cameraEnabled then
+            -- Reset zoom to normal when switching to follow mode
+            if Camera and Game.camera then
+                Game.camera.scale = 1.0
+            end
+            Game.previousCameraState = Game.cameraEnabled
+        end
+        
+        if playerSystem.x and playerSystem.y then
+            -- Move camera to center on player's CENTER (not top-left corner)
+            -- Player position is top-left, so add half width/height to center
+            local playerCenterX = playerSystem.x + (playerSystem.width / 2)
+            local playerCenterY = playerSystem.y + (playerSystem.height / 2)
+            
+            if Camera and Game.camera.lookAt then
+                -- Get current camera position
+                local camX, camY = Game.camera:position()
+                
+                -- Smooth lerp to player position (0.1 = smooth, 1.0 = instant)
+                local lerpSpeed = 5 -- How fast camera follows (higher = faster)
+                local newCamX = camX + (playerCenterX - camX) * lerpSpeed * dt
+                local newCamY = camY + (playerCenterY - camY) * lerpSpeed * dt
+                
+                Game.camera:lookAt(newCamX, newCamY)
+            elseif Game.camera.setTarget then
+                Game.camera:setTarget({x = playerCenterX, y = playerCenterY})
+            end
+        end
+    else
+        -- Check if camera was just disabled (state change)
+        if Game.previousCameraState ~= Game.cameraEnabled then
+            -- Set up zoomed out view ONCE when F6 is pressed
+            if Camera and Game.camera then
+                -- Center camera on world center
+                local worldCenterX = 2880 / 2  -- 1440
+                local worldCenterY = 1620 / 2  -- 810
+                Game.camera:lookAt(worldCenterX, worldCenterY)
+                
+                -- Calculate zoom to fit world in viewport (use .scale property directly)
+                local zoomX = GAME_WIDTH / 2880   -- ~0.333
+                local zoomY = GAME_HEIGHT / 1620  -- ~0.370
+                local zoom = math.min(zoomX, zoomY)  -- Use smaller to fit everything
+                Game.camera.scale = zoom
+                
+                print("🎥 Camera zoomed out to " .. zoom .. " at (" .. worldCenterX .. ", " .. worldCenterY .. ")")
+            end
+            Game.previousCameraState = Game.cameraEnabled
+        end
+        -- Camera stays fixed at world center with zoom level set above
     end
 end
 
@@ -267,9 +319,10 @@ function love.draw()
     
     -- Only draw world/camera if we're in normal gameplay, not mini-games
     if not isFullscreenState then
-        -- Apply camera transformation
-        if Game.camera.apply then
-            Game.camera:apply()
+        -- Apply camera transformation (ALWAYS apply, even when "disabled" for zoom view)
+        -- CRITICAL FIX: hump.camera uses :attach(), not :apply()!
+        if Game.camera and Game.camera.attach then
+            Game.camera:attach()
         end
         
         -- Area system handles drawing area-specific elements
@@ -284,39 +337,57 @@ function love.draw()
             -- shopkeeperEntity.draw() -- Removed - shopkeeper position conflicts with hunting zone
         end
         
-        -- Remove camera transformation
-        if Game.camera.unapply then
-            Game.camera:unapply()
+        -- Draw current game state (gameplay draws player and areas in world-space)
+        gamestate.draw()
+        
+        -- Remove camera transformation (ALWAYS detach)
+        -- CRITICAL FIX: hump.camera uses :detach(), not :unapply()!
+        if Game.camera and Game.camera.detach then
+            Game.camera:detach()
         end
         
-        -- Draw day/night overlay (only for gameplay)
+        -- Draw day/night overlay (only for gameplay, after camera)
         daynightSystem.draw()
+    else
+        -- Mini-games draw themselves completely (no camera)
+        gamestate.draw()
     end
     
-    -- Draw current game state (mini-games draw themselves completely)
-    gamestate.draw()
-    
     -- Draw UI overlay (only for normal gameplay, not mini-games)
+    -- ALL UI must be drawn AFTER camera detach to be in screen-space
     if not isFullscreenState then
         love.graphics.setColor(1, 1, 1)
         
         -- Clean UI panel at top-right (essential info only)
         local rightX = love.graphics.getWidth() - 180
         love.graphics.print("💰 $" .. playerEntity.inventory.money, rightX, 10)
-        love.graphics.print("❤️  " .. math.floor(playerEntity.health) .. "/" .. playerEntity.maxHealth, rightX, 30)
+        love.graphics.print("⚡ " .. math.floor(playerEntity.stamina) .. "/" .. playerEntity.maxStamina, rightX, 30)
         love.graphics.print("🕐 " .. daynightSystem.getTimeString(), rightX, 50)
         
-        -- Inventory hint (press I to open)
+        -- Show day counter
+        love.graphics.setColor(1, 1, 0.8)
+        love.graphics.print("Day " .. daynightSystem.dayCount, love.graphics.getWidth() - 80, 70)
+        
+        -- Movement controls hint
         love.graphics.setColor(0.7, 0.7, 0.7)
-        love.graphics.print("Press [I] for inventory", 10, 10)
+        love.graphics.print("WASD to move | I for inventory | R to forage", 10, love.graphics.getHeight() - 20)
         
         -- Draw debug info (toggle with F3)
         if Game.debug then
             love.graphics.setColor(0.8, 0.8, 0.8)
-            love.graphics.print("DEBUG MODE", love.graphics.getWidth() - 100, 30)
-            love.graphics.print("FPS: " .. love.timer.getFPS(), love.graphics.getWidth() - 100, 50)
-            love.graphics.print("Player: " .. math.floor(playerSystem.x) .. ", " .. math.floor(playerSystem.y), love.graphics.getWidth() - 100, 70)
-            love.graphics.print("Libraries: " .. (librariesLoaded and "✓" or "✗"), love.graphics.getWidth() - 100, 90)
+            love.graphics.print("DEBUG MODE", love.graphics.getWidth() - 200, 70)
+            love.graphics.print("FPS: " .. love.timer.getFPS(), love.graphics.getWidth() - 200, 90)
+            love.graphics.print("Player: " .. math.floor(playerSystem.x) .. ", " .. math.floor(playerSystem.y), love.graphics.getWidth() - 200, 110)
+            love.graphics.print("Size: " .. playerSystem.width .. "x" .. playerSystem.height, love.graphics.getWidth() - 200, 130)
+            love.graphics.print("Camera: " .. (Game.cameraEnabled and "ON [F6]" or "OFF [F6]"), love.graphics.getWidth() - 200, 150)
+            
+            -- Show camera center position
+            if Game.cameraEnabled and Camera then
+                local camX, camY = Game.camera:position()
+                love.graphics.print("Cam: " .. math.floor(camX) .. ", " .. math.floor(camY), love.graphics.getWidth() - 200, 170)
+            end
+            
+            love.graphics.print("Libraries: " .. (librariesLoaded and "✓" or "✗"), love.graphics.getWidth() - 200, 190)
         end
         
         -- Draw asset map overlay (toggle with F4)
@@ -335,6 +406,10 @@ function love.keypressed(key)
         print("Asset Map: " .. (assetMap.visible and "ON" or "OFF"))
     elseif key == "f5" then
         Game.paused = not Game.paused
+    elseif key == "f6" then
+        -- Toggle camera system for debugging
+        Game.cameraEnabled = not Game.cameraEnabled
+        print("🎥 Camera System: " .. (Game.cameraEnabled and "ON (Following Player)" or "OFF (Debug Mode)"))
     elseif key == "escape" then
         if gamestate.current and gamestate.current.name ~= "gameplay" then
             gamestate.switch("gameplay")

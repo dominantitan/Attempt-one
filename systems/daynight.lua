@@ -5,7 +5,7 @@ local daynight = {}
 
 -- Time properties
 daynight.time = 0.5 -- 0 = midnight, 0.5 = noon, 1 = midnight again
-daynight.dayLength = 300 -- 5 minutes per day cycle
+daynight.dayLength = 600 -- 10 minutes per day cycle (was 300)
 daynight.dayCount = 0 -- Track total days passed
 daynight.isDay = true
 daynight.isDusk = false

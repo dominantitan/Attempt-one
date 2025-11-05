@@ -717,12 +717,6 @@ function fishing:draw()
     love.graphics.setColor(0.15, 0.4, 0.6)
     love.graphics.rectangle("fill", 0, 0, 800, 600)
     
-    -- Draw lighter water ripples for depth
-    love.graphics.setColor(0.2, 0.5, 0.7, 0.3)
-    for i = 1, 5 do
-        love.graphics.circle("line", 200 + i * 120, 150 + math.sin(fishing.timeInSession + i) * 20, 40 + i * 10)
-    end
-    
     -- Draw BOID FISH (small visual fish with flocking behavior)
     for _, boid in ipairs(fishing.boidFish) do
         -- Only draw boids that are in visible area

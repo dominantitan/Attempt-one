@@ -156,7 +156,7 @@ function gameplay:drawInteractionPrompts()
         if nearFurniture then
             local prompt = ""
             if nearFurniture.interaction == "sleep" then
-                prompt = "Press Z to sleep and restore health"
+                prompt = "Press Z to sleep and restore stamina"
             elseif nearFurniture.interaction == "storage" then
                 prompt = "Press C to access storage chest"
             elseif nearFurniture.interaction == "shop" then
@@ -177,14 +177,7 @@ function gameplay:drawInteractionPrompts()
     -- Area-specific prompts removed (old hunting_area system disabled)
     -- NEW hunting uses circular zones with ENTER key instead
     
-    -- Always show movement controls
-    love.graphics.setColor(0.7, 0.7, 0.7)
-    love.graphics.print("WASD to move | I for inventory | R to forage | T to spawn crops (debug)", 10, love.graphics.getHeight() - 140)
-    
-    -- Show day counter in top-right corner
-    local daynightSystem = require("systems/daynight")
-    love.graphics.setColor(1, 1, 0.8)
-    love.graphics.print("Day " .. daynightSystem.dayCount, love.graphics.getWidth() - 80, 10)
+    -- UI moved to main.lua to render in screen-space (after camera detach)
     
     love.graphics.setColor(1, 1, 1)
 end
@@ -356,14 +349,13 @@ function gameplay:keypressed(key)
 end
 
 function gameplay:sleepInCabin(playerEntity, daynightSystem)
-    -- Restore health and stamina
-    playerEntity.heal(50)
+    -- Restore stamina
     playerEntity.rest(100)
     
     -- Advance to next day
     daynightSystem.time = 0.25 -- Set to morning
     
-    print("💤 You sleep peacefully. Health and stamina restored!")
+    print("💤 You sleep peacefully. Stamina restored!")
     print("🌅 A new day begins...")
 end
 
@@ -509,7 +501,6 @@ end
 
 function gameplay:sleepInBed(playerEntity, daynightSystem)
     -- Enhanced sleep function for cabin
-    playerEntity.heal(100) -- Full heal in bed
     playerEntity.rest(100) -- Full stamina restore
     
     -- Calculate time remaining in current day (for crop growth)
@@ -555,7 +546,7 @@ function gameplay:sleepInBed(playerEntity, daynightSystem)
     end
     
     print("💤 You sleep comfortably in your uncle's bed")
-    print("❤️  Health and stamina fully restored!")
+    print("❤️  Stamina fully restored!")
     print("🌅 Day " .. previousDay .. " → Day " .. daynightSystem.dayCount)
     print("🗓️  A new day begins!")
 end
@@ -578,11 +569,10 @@ function gameplay:examineItem(furniture)
 end
 
 function gameplay:warmUpByFire(playerEntity)
-    -- Restore some health and stamina by the fire
-    playerEntity.heal(20)
+    -- Restore some stamina by the fire
     playerEntity.rest(30)
     print("🔥 You warm yourself by the crackling fire")
-    print("❤️  The warmth restores some health and energy")
+    print("❤️  The warmth restores some energy")
 end
 
 function gameplay:huntInCurrentArea()
@@ -665,9 +655,9 @@ function gameplay:forageCrop(playerX, playerY)
         if foragingSystem.collectCrop(nearCrop) then
             -- Successfully collected
             local playerEntity = require("entities/player")
-            -- Health/nutrition bonus from wild food
+            -- Nutrition bonus from wild food (no health system in MVP)
             if nearCrop.type.nutrition then
-                playerEntity.heal(nearCrop.type.nutrition)
+                playerEntity.eat(nearCrop.type.nutrition)
             end
         end
     else

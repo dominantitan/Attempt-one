@@ -3,12 +3,13 @@
 
 local player = {}
 
--- Player properties
-player.x = 400
-player.y = 300
-player.speed = 200
-player.width = 32
-player.height = 32
+-- Player properties (scaled 3x for expanded world)
+-- Spawn at center of railway station
+player.x = 570  -- Railway station center (was 400)
+player.y = 1350 -- Railway station center (was 300)
+player.speed = 300  -- Was 200 (scaled 1.5x for better feel)
+player.width = 48   -- Was 32 (scaled 1.5x)
+player.height = 48  -- Was 32 (scaled 1.5x)
 player.health = 100
 player.stamina = 100
 
@@ -64,9 +65,9 @@ function player.update(dt)
     local currentArea = areas.getCurrentArea()
     
     if currentArea and currentArea.type == "interior" and currentArea.name == "Uncle's Cabin" then
-        -- CABIN INTERIOR BOUNDARIES (larger - full floor rectangle)
-        player.x = math.max(20, math.min(460, player.x))
-        player.y = math.max(20, math.min(300, player.y))
+        -- CABIN INTERIOR BOUNDARIES (larger - full floor rectangle - scaled 3x)
+        player.x = math.max(60, math.min(1380, player.x))  -- Scaled 3x
+        player.y = math.max(60, math.min(900, player.y))   -- Scaled 3x
     else
         -- OVERWORLD BOUNDARIES - Keep player within playable area
         local world = require("systems/world")
@@ -81,9 +82,33 @@ function player.update(dt)
 end
 
 function player.draw()
-    -- Draw player sprite
-    love.graphics.setColor(0.2, 0.8, 0.3) -- Green player color
+    -- Draw player sprite with better visibility
+    -- Body (bright green)
+    love.graphics.setColor(0.2, 0.9, 0.3) -- Brighter green
     love.graphics.rectangle("fill", player.x, player.y, player.width, player.height)
+    
+    -- Outline (white border for visibility)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", player.x, player.y, player.width, player.height)
+    
+    -- Direction indicator (small circle showing facing direction)
+    love.graphics.setColor(1, 1, 0) -- Yellow indicator
+    local centerX = player.x + player.width / 2
+    local centerY = player.y + player.height / 2
+    local indicatorOffset = 8
+    
+    if player.direction == "up" then
+        love.graphics.circle("fill", centerX, centerY - indicatorOffset, 4)
+    elseif player.direction == "down" then
+        love.graphics.circle("fill", centerX, centerY + indicatorOffset, 4)
+    elseif player.direction == "left" then
+        love.graphics.circle("fill", centerX - indicatorOffset, centerY, 4)
+    elseif player.direction == "right" then
+        love.graphics.circle("fill", centerX + indicatorOffset, centerY, 4)
+    end
+    
+    love.graphics.setLineWidth(1)
     love.graphics.setColor(1, 1, 1)
 end
 

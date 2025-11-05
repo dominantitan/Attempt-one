@@ -5,7 +5,7 @@ function love.conf(t)
     -- Window settings
     t.window.title = "Farm & Hunt Game"
     t.window.width = 960
-    t.window.height = 540
+    t.window.height = 600  -- Fixed: was 540, but shop UI needs 600
     t.window.resizable = false
     t.window.vsync = 1
     t.window.msaa = 0

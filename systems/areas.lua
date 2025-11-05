@@ -12,38 +12,38 @@ areas.transitionData = {}
 areas.definitions = {
     main_world = {
         name = "Dark Forest",
-        width = 960,
-        height = 540,
+        width = 2880,  -- Was 960 (scaled 3x)
+        height = 1620, -- Was 540 (scaled 3x)
         type = "overworld",
         music = "forest_ambient",
         lighting = "day_night_cycle",
         exits = {
-            {x = 460, y = 310, width = 80, height = 80, target = "cabin_interior", prompt = "Press ENTER to enter cabin"},
-            {x = 190, y = 620, width = 80, height = 60, target = "shop_interior", prompt = "Press ENTER to enter shop"}
+            {x = 1380, y = 930, width = 240, height = 240, target = "cabin_interior", prompt = "Press ENTER to enter cabin"}, -- Scaled 3x
+            {x = 570, y = 1860, width = 240, height = 180, target = "shop_interior", prompt = "Press ENTER to enter shop"} -- Scaled 3x
         },
         huntingZones = {
-            {x = 130, y = 130, radius = 80, target = "hunting_northwest", name = "Northwestern Woods"},
-            {x = 830, y = 130, radius = 80, target = "hunting_northeast", name = "Northeastern Grove"},
-            {x = 830, y = 410, radius = 80, target = "hunting_southeast", name = "Southeastern Wilderness"}
+            {x = 390, y = 390, radius = 240, target = "hunting_northwest", name = "Northwestern Woods"}, -- Scaled 3x
+            {x = 2490, y = 390, radius = 240, target = "hunting_northeast", name = "Northeastern Grove"}, -- Scaled 3x
+            {x = 2490, y = 1230, radius = 240, target = "hunting_southeast", name = "Southeastern Wilderness"} -- Scaled 3x
         },
         fishingZones = {
-            {x = 630, y = 480, radius = 60, target = "fishing_pond", name = "Pond"}
+            {x = 1890, y = 1440, radius = 180, target = "fishing_pond", name = "Pond"} -- Scaled 3x
         },
         structures = {
-            {x = 130, y = 410, width = 120, height = 80, type = "railway_station", interaction = "mystery", name = "Old Railway Station"}
+            {x = 390, y = 1230, width = 360, height = 240, type = "railway_station", interaction = "mystery", name = "Old Railway Station"} -- Scaled 3x
         }
     },
     
     cabin_interior = {
         name = "Uncle's Cabin",
-        width = 480,
-        height = 320,
+        width = 1440,  -- Was 480 (scaled 3x)
+        height = 960,  -- Was 320 (scaled 3x)
         type = "interior",
         music = "cabin_cozy",
         lighting = "warm_interior",
-        playerSpawn = {x = 240, y = 280}, -- Center bottom
+        playerSpawn = {x = 720, y = 840}, -- Center bottom (scaled 3x)
         exits = {
-            {x = 220, y = 300, width = 40, height = 20, target = "main_world", targetPos = {x = 500, y = 350}, prompt = "Press ENTER to go outside"}
+            {x = 660, y = 900, width = 120, height = 60, target = "main_world", targetPos = {x = 1500, y = 1050}, prompt = "Press ENTER to go outside"} -- Scaled 3x
         },
         furniture = {
             {type = "bed", x = 100, y = 80, width = 80, height = 40, interaction = "sleep"},

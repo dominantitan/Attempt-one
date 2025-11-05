@@ -3,68 +3,69 @@
 
 local world = {}
 
--- World dimensions and layout
-world.width = 960
-world.height = 540
+-- World dimensions and layout (3x expanded for camera system)
+world.width = 2880  -- Was 960
+world.height = 1620 -- Was 540
+world.SCALE_FACTOR = 3 -- For reference
 
--- CORRECTED BOUNDARIES (based on screenshot analysis)
+-- EXPANDED BOUNDARIES (scaled 3x)
 world.bounds = {
-    left = 50,
-    right = 910 - 32,
-    top = 50,
-    bottom = 520 - 32 -- FIXED: Was 490, now 520 (closer to actual bottom)
+    left = 150,    -- Was 50
+    right = 2730,  -- Was 910 - 32
+    top = 150,     -- Was 50
+    bottom = 1560  -- Was 520 - 32
 }
 
--- Structure positions (based on your screenshot)
+-- Structure positions (scaled 3x for expanded world)
 world.structures = {
     cabin = {
-        x = 460,
-        y = 310,
-        width = 80,
-        height = 80,
+        x = 1380,  -- Was 460
+        y = 930,   -- Was 310
+        width = 240,  -- Was 80
+        height = 240, -- Was 80
         name = "Uncle's Cabin",
         interaction = "sleep"
     },
     
     farm = {
-        x = 565,
-        y = 325,
-        width = 120,
-        height = 80,  -- Changed to make 2x3 aspect ratio
+        x = 1695,  -- Was 565
+        y = 975,   -- Was 325
+        width = 360,  -- Was 120
+        height = 240, -- Was 80
         name = "Farm",
         interaction = "farming",
         plots = {} -- Will contain individual plot positions
     },
     
     pond = {
-        x = 580,
-        y = 450,  -- Moved up to be visible (was 545, outside screen)
-        width = 100,
-        height = 60,
+        x = 1740,  -- Was 580
+        y = 1350,  -- Was 450
+        width = 300,  -- Was 100
+        height = 180, -- Was 60
         name = "Pond",
         interaction = "fishing"
     },
     
     shop = {
-        x = 190,
-        y = 620,
-        width = 80,
-        height = 60,
+        x = 570,   -- Was 190
+        y = 1860,  -- Was 620
+        width = 240,  -- Was 80
+        height = 180, -- Was 60
         name = "Shop",
         interaction = "trading"
     },
     
     railway = {
-        x = 130,
-        y = 410,
-        width = 120,
-        height = 80,
+        x = 390,   -- Was 130
+        y = 1230,  -- Was 410
+        width = 360,  -- Was 120
+        height = 240, -- Was 80
         name = "Old Railway Station",
         interaction = "railway_shop",
         shopkeeper = {
             name = "Station Master Ellis",
-            x = 190,
-            y = 450,
+            x = 570,   -- Was 190
+            y = 1350,  -- Was 450
             dialogue = "Welcome to the old station! I've got supplies for travelers.",
             inventory = {
                 {item = "seeds", price = 5, stock = 10},
@@ -76,13 +77,13 @@ world.structures = {
     }
 }
 
--- Hunting zones (circular areas in corners)
+-- Hunting zones (circular areas in corners - scaled 3x)
 world.huntingZones = {
     -- bottomLeft removed - railway station occupies this area
     -- topLeft = {
-    --     x = 130,
-    --     y = 130,
-    --     radius = 80,
+    --     x = 390,
+    --     y = 390,
+    --     radius = 240,
     --     name = "Northwestern Woods",
     --     animalTypes = {"rabbit", "deer","tiger"},
     --     dangerLevel = 0.2,
@@ -91,9 +92,9 @@ world.huntingZones = {
     -- },
     
     topRight = {
-        x = 830,
-        y = 130,
-        radius = 80,
+        x = 2490,  -- Was 830
+        y = 390,   -- Was 130
+        radius = 240, -- Was 80
         name = "Northeastern Grove",
         animalTypes = {"rabbit", "boar","tiger"},
         dangerLevel = 0.4,
@@ -103,9 +104,9 @@ world.huntingZones = {
 
     
     bottomRight = {
-        x = 830,
-        y = 410,
-        radius = 80,
+        x = 2490,  -- Was 830
+        y = 1230,  -- Was 410
+        radius = 240, -- Was 80
         name = "Southeastern Wilderness",
         animalTypes = {"deer","boar", "tiger"},
         dangerLevel = 0.8,
@@ -120,19 +121,19 @@ world.animalSpawnTimer = 0
 world.animalSpawnInterval = 45 -- Spawn animal every 45 seconds on average
 world.maxWorldAnimals = 3      -- Maximum animals in main world at once
 
--- Farm plot positions (3x2 grid)
+-- Farm plot positions (3x2 grid - scaled 3x)
 world.generateFarmPlots = function()
     local farm = world.structures.farm
-    local plotSize = 32
-    local spacing = 8
+    local plotSize = 96  -- Was 32
+    local spacing = 24   -- Was 8
     
     world.structures.farm.plots = {}
     
     for row = 0, 1 do
         for col = 0, 2 do
             local plot = {
-                x = farm.x + 20 + (col * (plotSize + spacing)),
-                y = farm.y + 20 + (row * (plotSize + spacing)),
+                x = farm.x + 60 + (col * (plotSize + spacing)),  -- Was 20
+                y = farm.y + 60 + (row * (plotSize + spacing)),  -- Was 20
                 width = plotSize,
                 height = plotSize,
                 planted = false,
@@ -327,39 +328,39 @@ end
 
 -- Draw world elements
 function world.draw()
-    -- DRAW WORLD BOUNDARIES (Visual indicators)
+    -- DRAW WORLD BOUNDARIES (Visual indicators - scaled 3x)
     love.graphics.setColor(0.8, 0.2, 0.2, 0.6) -- Red boundaries
-    love.graphics.setLineWidth(3)
+    love.graphics.setLineWidth(6) -- Was 3
     
     -- Top boundary
-    love.graphics.line(50, 50, 910, 50)
-    -- Bottom boundary (CORRECTED to 520)
-    love.graphics.line(50, 520, 910, 520)
+    love.graphics.line(150, 150, 2730, 150)
+    -- Bottom boundary
+    love.graphics.line(150, 1560, 2730, 1560)
     -- Left boundary
-    love.graphics.line(50, 50, 50, 520)
+    love.graphics.line(150, 150, 150, 1560)
     -- Right boundary
-    love.graphics.line(910, 50, 910, 520)
+    love.graphics.line(2730, 150, 2730, 1560)
     
     -- Draw corner markers for visibility
     love.graphics.setColor(1, 0, 0, 0.8)
-    love.graphics.rectangle("line", 50, 50, 20, 20) -- Top-left
-    love.graphics.rectangle("line", 890, 50, 20, 20) -- Top-right
-    love.graphics.rectangle("line", 50, 500, 20, 20) -- Bottom-left (CORRECTED)
-    love.graphics.rectangle("line", 890, 500, 20, 20) -- Bottom-right (CORRECTED)
+    love.graphics.rectangle("line", 150, 150, 60, 60) -- Top-left (was 20x20)
+    love.graphics.rectangle("line", 2670, 150, 60, 60) -- Top-right
+    love.graphics.rectangle("line", 150, 1500, 60, 60) -- Bottom-left
+    love.graphics.rectangle("line", 2670, 1500, 60, 60) -- Bottom-right
     
     love.graphics.setLineWidth(1) -- Reset line width
     
-    -- DRAW TIGER CHASE (high priority - draw first so it's behind player)
+    -- DRAW TIGER CHASE (high priority - draw first so it's behind player - scaled 3x)
     if Game and Game.tigerChasing and world.tigerChase then
         local tiger = world.tigerChase
         love.graphics.setColor(1, 0.5, 0, 1) -- Orange for tiger
-        love.graphics.circle("fill", tiger.x, tiger.y, 20)
+        love.graphics.circle("fill", tiger.x, tiger.y, 60) -- Was 20
         
         -- Draw tiger face
         love.graphics.setColor(0, 0, 0)
-        love.graphics.circle("fill", tiger.x - 7, tiger.y - 5, 3) -- Eye
-        love.graphics.circle("fill", tiger.x + 7, tiger.y - 5, 3) -- Eye
-        love.graphics.arc("line", "open", tiger.x, tiger.y + 5, 8, math.pi * 0.2, math.pi * 0.8) -- Mouth
+        love.graphics.circle("fill", tiger.x - 21, tiger.y - 15, 9) -- Eye (scaled 3x)
+        love.graphics.circle("fill", tiger.x + 21, tiger.y - 15, 9) -- Eye (scaled 3x)
+        love.graphics.arc("line", "open", tiger.x, tiger.y + 15, 24, math.pi * 0.2, math.pi * 0.8) -- Mouth (scaled 3x)
         
         -- Warning text
         love.graphics.setColor(1, 0, 0, math.abs(math.sin(love.timer.getTime() * 5)))
@@ -408,17 +409,17 @@ function world.draw()
     -- Draw structure labels and shapes
     love.graphics.setColor(1, 1, 1)
     for name, structure in pairs(world.structures) do
-        -- Draw structure placeholder shapes
+        -- Draw structure placeholder shapes (scaled 3x)
         if name == "cabin" then
             love.graphics.setColor(0.6, 0.3, 0.1) -- Brown cabin
             love.graphics.rectangle("fill", structure.x, structure.y, structure.width, structure.height)
             love.graphics.setColor(0.4, 0.2, 0.1) -- Darker roof
-            love.graphics.rectangle("fill", structure.x - 5, structure.y - 10, structure.width + 10, 15)
+            love.graphics.rectangle("fill", structure.x - 15, structure.y - 30, structure.width + 30, 45) -- Scaled 3x
             
             -- BOUNDARY OUTLINE for cabin
             love.graphics.setColor(1, 1, 0, 0.7) -- Yellow outline
-            love.graphics.setLineWidth(2)
-            love.graphics.rectangle("line", structure.x - 2, structure.y - 2, structure.width + 4, structure.height + 4)
+            love.graphics.setLineWidth(6) -- Was 2
+            love.graphics.rectangle("line", structure.x - 6, structure.y - 6, structure.width + 12, structure.height + 12) -- Scaled 3x
             love.graphics.setLineWidth(1)
             
         elseif name == "pond" then
@@ -436,28 +437,28 @@ function world.draw()
         --     love.graphics.setColor(0.5, 0.5, 0.5) -- Gray shop
         --     love.graphics.rectangle("fill", structure.x, structure.y, structure.width, structure.height)
         elseif name == "railway" then
-            -- Draw railway station building
+            -- Draw railway station building (scaled 3x)
             love.graphics.setColor(0.4, 0.3, 0.2) -- Dark brown for old wood
             love.graphics.rectangle("fill", structure.x, structure.y, structure.width, structure.height)
             
             -- Draw roof
             love.graphics.setColor(0.3, 0.2, 0.1) -- Darker roof
-            love.graphics.rectangle("fill", structure.x - 5, structure.y - 10, structure.width + 10, 15)
+            love.graphics.rectangle("fill", structure.x - 15, structure.y - 30, structure.width + 30, 45) -- Scaled 3x
             
             -- Draw door
             love.graphics.setColor(0.2, 0.1, 0.05) -- Very dark door
-            love.graphics.rectangle("fill", structure.x + structure.width/2 - 10, structure.y + structure.height - 25, 20, 25)
+            love.graphics.rectangle("fill", structure.x + structure.width/2 - 30, structure.y + structure.height - 75, 60, 75) -- Scaled 3x
             
             -- Draw windows
             love.graphics.setColor(0.8, 0.8, 0.6) -- Yellowish windows
-            love.graphics.rectangle("fill", structure.x + 15, structure.y + 15, 20, 15)
-            love.graphics.rectangle("fill", structure.x + structure.width - 35, structure.y + 15, 20, 15)
+            love.graphics.rectangle("fill", structure.x + 45, structure.y + 45, 60, 45) -- Scaled 3x
+            love.graphics.rectangle("fill", structure.x + structure.width - 105, structure.y + 45, 60, 45) -- Scaled 3x
             
             -- Draw railway tracks
             love.graphics.setColor(0.5, 0.5, 0.5) -- Gray tracks
-            love.graphics.setLineWidth(3)
-            love.graphics.line(structure.x - 20, structure.y + structure.height + 5, structure.x + structure.width + 20, structure.y + structure.height + 5)
-            love.graphics.line(structure.x - 20, structure.y + structure.height + 15, structure.x + structure.width + 20, structure.y + structure.height + 15)
+            love.graphics.setLineWidth(9) -- Was 3
+            love.graphics.line(structure.x - 60, structure.y + structure.height + 15, structure.x + structure.width + 60, structure.y + structure.height + 15) -- Scaled 3x
+            love.graphics.line(structure.x - 60, structure.y + structure.height + 45, structure.x + structure.width + 60, structure.y + structure.height + 45) -- Scaled 3x
             love.graphics.setLineWidth(1) -- Reset line width
         end
         

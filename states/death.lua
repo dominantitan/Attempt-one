@@ -3,11 +3,13 @@
 
 local death = {}
 
-function death:enter(from, deathCause)
+function death:enter(deathCause)
     print("💀 Death screen entered")
+    print("🔍 DEBUG: deathCause =", deathCause)
     
     -- Store death cause (default is tiger)
     death.cause = deathCause or "tiger"
+    print("🔍 DEBUG: death.cause stored as =", death.cause)
     
     -- Get day counter for score
     local daynightSystem = require("systems/daynight")

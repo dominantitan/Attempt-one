@@ -4,36 +4,41 @@
 local foraging = {}
 
 -- Wild crop types and their properties
+-- NOTE: itemType must match shop.buyPrices in shop.lua for selling!
 foraging.wildCropTypes = {
     {
         name = "Wild Berries",
+        itemType = "berries", -- Used for inventory/shop (shop buys at $6)
         icon = "🫐",
-        value = 3,
+        sellValue = 6, -- What shop pays
         rarity = 0.4, -- 40% chance when spawning
         nutrition = 15,
         description = "Sweet berries found on wild bushes"
     },
     {
         name = "Mushrooms",
+        itemType = "mushroom", -- Matches crop type too (shop buys at $10)
         icon = "🍄",
-        value = 5,
-        rarity = 0.3, -- 30% chance when spawning
+        sellValue = 10,
+        rarity = 0.25, -- 25% chance
         nutrition = 20,
         description = "Earthy mushrooms growing near trees"
     },
     {
         name = "Wild Herbs",
+        itemType = "herbs", -- Used for inventory/shop (shop buys at $8)
         icon = "🌿",
-        value = 8,
-        rarity = 0.2, -- 20% chance when spawning
+        sellValue = 8,
+        rarity = 0.25, -- 25% chance
         nutrition = 10,
         description = "Medicinal herbs with healing properties"
     },
     {
         name = "Pine Nuts",
+        itemType = "nuts", -- Used for inventory/shop (shop buys at $5)
         icon = "🌰",
-        value = 6,
-        rarity = 0.1, -- 10% chance when spawning
+        sellValue = 5,
+        rarity = 0.1, -- 10% chance (rare!)
         nutrition = 25,
         description = "Nutritious nuts from pine cones"
     }
@@ -42,28 +47,28 @@ foraging.wildCropTypes = {
 -- Current wild crops on the map
 foraging.activeCrops = {}
 
--- Spawn settings
-foraging.dailySpawnCount = {min = 1, max = 2}
+-- Spawn settings (MVP BALANCE)
+foraging.dailySpawnCount = {min = 3, max = 5} -- More items to make foraging viable
 foraging.lastSpawnDay = -1
 
--- Forest boundaries (avoid spawning on structures)
+-- Forest boundaries (avoid spawning on structures - scaled 3x)
 foraging.forestBounds = {
-    x = 50,
-    y = 50,
-    width = 860,
-    height = 440
+    x = 150,    -- Was 50
+    y = 150,    -- Was 50
+    width = 2580,  -- Was 860
+    height = 1320  -- Was 440
 }
 
--- Areas to avoid (structures, etc.)
+-- Areas to avoid (structures, etc. - scaled 3x)
 foraging.avoidAreas = {
-    {x = 450, y = 300, width = 100, height = 100}, -- Cabin area
-    {x = 555, y = 315, width = 140, height = 100}, -- Farm area
-    {x = 570, y = 535, width = 120, height = 80},  -- Pond area
-    {x = 180, y = 610, width = 100, height = 80},  -- Shop area
-    {x = 120, y = 400, width = 140, height = 100}, -- Railway station area
-    {x = 120, y = 120, radius = 90},               -- NW hunting zone
-    {x = 820, y = 120, radius = 90},               -- NE hunting zone
-    {x = 820, y = 400, radius = 90}                -- SE hunting zone
+    {x = 1350, y = 900, width = 300, height = 300},  -- Cabin area (was 450,300,100,100)
+    {x = 1665, y = 945, width = 420, height = 300},  -- Farm area (was 555,315,140,100)
+    {x = 1710, y = 1605, width = 360, height = 240}, -- Pond area (was 570,535,120,80)
+    {x = 540, y = 1830, width = 300, height = 240},  -- Shop area (was 180,610,100,80)
+    {x = 360, y = 1200, width = 420, height = 300},  -- Railway station area (was 120,400,140,100)
+    {x = 360, y = 360, radius = 270},                -- NW hunting zone (was 120,120,90)
+    {x = 2460, y = 360, radius = 270},               -- NE hunting zone (was 820,120,90)
+    {x = 2460, y = 1200, radius = 270}               -- SE hunting zone (was 820,400,90)
 }
 
 -- Initialize foraging system
@@ -182,11 +187,12 @@ function foraging.collectCrop(crop)
     if crop and not crop.collected then
         crop.collected = true
         
-        -- Add to player inventory
+        -- Add to player inventory using the correct itemType (for shop compatibility)
         local playerEntity = require("entities/player")
-        playerEntity.addItem(crop.type.name, 1)
+        playerEntity.addItem(crop.type.itemType, 1)
         
         print("🌿 Collected " .. crop.type.icon .. " " .. crop.type.name .. "!")
+        print("💰 Sells for $" .. crop.type.sellValue .. " at shop")
         print("💡 " .. crop.type.description)
         
         return true
@@ -203,35 +209,39 @@ function foraging.draw()
     
     for _, crop in ipairs(foraging.activeCrops) do
         if not crop.collected then
-            -- Set color based on crop type
+            -- Set color based on crop type (easier identification)
             local r, g, b = 1, 1, 1
-            if crop.type.name == "Wild Berries" then
-                r, g, b = 0.4, 0.1, 0.8 -- Purple berries
-            elseif crop.type.name == "Mushrooms" then
-                r, g, b = 0.6, 0.4, 0.2 -- Brown mushrooms
-            elseif crop.type.name == "Wild Herbs" then
-                r, g, b = 0.2, 0.8, 0.3 -- Green herbs
-            elseif crop.type.name == "Pine Nuts" then
-                r, g, b = 0.5, 0.3, 0.1 -- Brown nuts
+            if crop.type.itemType == "berries" then
+                r, g, b = 0.5, 0.2, 0.9 -- Purple/blue berries
+            elseif crop.type.itemType == "mushroom" then
+                r, g, b = 0.7, 0.5, 0.3 -- Brown mushrooms
+            elseif crop.type.itemType == "herbs" then
+                r, g, b = 0.3, 0.9, 0.4 -- Bright green herbs
+            elseif crop.type.itemType == "nuts" then
+                r, g, b = 0.6, 0.4, 0.2 -- Brown nuts
             end
             
             -- Draw outer glow ring (pulsing)
-            love.graphics.setColor(r, g, b, pulse * 0.4)
-            love.graphics.circle("fill", crop.x, crop.y, 12)
+            love.graphics.setColor(r, g, b, pulse * 0.5)
+            love.graphics.circle("fill", crop.x, crop.y, 14)
             
             -- Draw middle glow
-            love.graphics.setColor(r, g, b, pulse * 0.7)
-            love.graphics.circle("fill", crop.x, crop.y, 9)
+            love.graphics.setColor(r, g, b, pulse * 0.8)
+            love.graphics.circle("fill", crop.x, crop.y, 10)
             
             -- Draw main crop circle
             love.graphics.setColor(r, g, b, 1.0)
-            love.graphics.circle("fill", crop.x, crop.y, 6)
+            love.graphics.circle("fill", crop.x, crop.y, 7)
+            
+            -- Draw icon on top
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.print(crop.type.icon, crop.x - 8, crop.y - 10, 0, 0.8, 0.8)
             
             -- Draw bright highlight circle (pulsing)
-            love.graphics.setColor(1, 1, 1, glowPulse)
-            love.graphics.circle("line", crop.x, crop.y, 8)
-            love.graphics.setLineWidth(2)
+            love.graphics.setColor(1, 1, 1, glowPulse * 0.7)
             love.graphics.circle("line", crop.x, crop.y, 10)
+            love.graphics.setLineWidth(2)
+            love.graphics.circle("line", crop.x, crop.y, 13)
             love.graphics.setLineWidth(1)
         end
     end

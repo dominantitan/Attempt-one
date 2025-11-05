@@ -6,53 +6,70 @@
 
 local shop = {}
 
--- Shop inventory (what player can buy)
-shop.items = {
-    -- Seeds (EXPENSIVE - makes farming an investment, not guaranteed profit)
-    {name = "Carrot Seeds", type = "seeds", price = 10, sellPrice = 1, description = "Grows carrots in 60s (slow!)"},
-    {name = "Potato Seeds", type = "potato_seeds", price = 15, sellPrice = 2, description = "Grows potatoes in 90s (slow!)"},
-    {name = "Mushroom Spores", type = "mushroom_seeds", price = 20, sellPrice = 2, description = "Grows mushrooms in 120s (slow!)"},
-    
-    -- Water (encourages free collection at pond instead of buying)
-    {name = "Water Bucket", type = "water", price = 5, sellPrice = 0, description = "Waters crops (get free at pond!)"},
-    
-    -- Food (for emergencies when player is desperate)
-    {name = "Bread", type = "bread", price = 6, sellPrice = 1, description = "Restores hunger"},
-    {name = "Canned Beans", type = "beans", price = 10, sellPrice = 2, description = "Restores hunger and health"},
-    
-    -- HUNTING EQUIPMENT (New!)
-    {name = "Arrows (10x)", type = "arrows", price = 15, sellPrice = 1, description = "Ammo for bow"},
-    {name = "Rifle", type = "rifle_weapon", price = 200, sellPrice = 50, description = "Powerful hunting rifle (one-time purchase)"},
-    {name = "Rifle Bullets (10x)", type = "bullets", price = 25, sellPrice = 2, description = "Ammo for rifle"},
-    {name = "Shotgun", type = "shotgun_weapon", price = 350, sellPrice = 80, description = "Spread shot hunter (one-time purchase)"},
-    {name = "Shotgun Shells (10x)", type = "shells", price = 30, sellPrice = 2, description = "Ammo for shotgun"},
-    
-    -- FISHING EQUIPMENT
-    {name = "Fishing Net", type = "fishingNet", price = 50, sellPrice = 10, description = "Catch multiple fish at once! (one-time purchase)"},
-    
-    --[[ FUTURE FEATURES - COMMENTED OUT FOR MVP
-    {name = "Soil Fertilizer", type = "fertilizer", price = 30, sellPrice = 3, description = "Improves soil quality"},
-    {name = "Pesticide", type = "pesticide", price = 35, sellPrice = 4, description = "Reduces pest damage"},
-    {name = "Basic Hoe", type = "hoe", price = 50, sellPrice = 10, description = "Improves farming efficiency"},
-    {name = "Watering Can", type = "watering_can", price = 40, sellPrice = 8, description = "Waters multiple crops"},
-    --]]
+-- Shop inventory (what player can buy) - ORGANIZED BY CATEGORY
+shop.categories = {
+    {
+        name = "🌾 FARMING SUPPLIES",
+        color = {0.5, 0.9, 0.3},
+        items = {
+            {name = "Carrot Seeds", type = "seeds", price = 10, sellPrice = 1, description = "Grows carrots in 10 min • Sells for $8 each"},
+            {name = "Potato Seeds", type = "potato_seeds", price = 15, sellPrice = 2, description = "Grows potatoes in 12.5 min • Sells for $12 each"},
+            {name = "Mushroom Spores", type = "mushroom_seeds", price = 20, sellPrice = 2, description = "Grows mushrooms in 15 min • Sells for $15 each"},
+            {name = "Water Bucket", type = "water", price = 5, sellPrice = 0, description = "Waters crops (Get FREE at pond!)"},
+        }
+    },
+    {
+        name = "🏹 HUNTING GEAR",
+        color = {1, 0.5, 0.3},
+        items = {
+            {name = "Arrows (10x)", type = "arrows", price = 15, sellPrice = 1, description = "Ammo for bow hunting"},
+            {name = "Rifle", type = "rifle_weapon", price = 200, sellPrice = 50, description = "⭐ Powerful rifle • One-time purchase"},
+            {name = "Rifle Bullets (10x)", type = "bullets", price = 25, sellPrice = 2, description = "Ammo for rifle"},
+            {name = "Shotgun", type = "shotgun_weapon", price = 350, sellPrice = 80, description = "⭐ Spread shot • One-time purchase"},
+            {name = "Shotgun Shells (10x)", type = "shells", price = 30, sellPrice = 2, description = "Ammo for shotgun"},
+        }
+    },
+    {
+        name = "🎣 FISHING EQUIPMENT",
+        color = {0.4, 0.7, 1},
+        items = {
+            {name = "Fishing Net", type = "fishingNet", price = 50, sellPrice = 10, description = "⭐ Catch multiple fish! • One-time purchase"},
+        }
+    },
+    {
+        name = "🍞 CONSUMABLES",
+        color = {1, 0.9, 0.5},
+        items = {
+            {name = "Bread", type = "bread", price = 6, sellPrice = 1, description = "Restores hunger"},
+            {name = "Canned Beans", type = "beans", price = 10, sellPrice = 2, description = "Restores lots of hunger"},
+        }
+    }
 }
+
+-- Flatten items for backward compatibility
+shop.items = {}
+for _, category in ipairs(shop.categories) do
+    for _, item in ipairs(category.items) do
+        table.insert(shop.items, item)
+    end
+end
 
 -- What shopkeeper buys from player (PRICE BALANCE IS CRITICAL!)
 -- PROFIT MARGINS:
 --   Farming: Buy seeds $10-20 → Sell crops $4-10 → Loss to small profit (needs water+time)
---   Hunting: Free to hunt → Sell meat $15-100 → Pure profit (but risky)
---   Foraging: Free to collect → Sell $5-8 → Pure profit (safe but low yield)
+--   Foraging: Free to collect → Sell $5-10 → Pure profit (safe, good early income!)
+--   Fishing: Free to catch → Sell $5-35 → Pure profit (skill-based income)
+--   Hunting: Free to hunt → Sell meat $15-100 → Pure profit (risky but rewarding)
 shop.buyPrices = {
-    -- CROPS (LOW value - farming is a grind, not a goldmine)
-    carrot = 4,      -- Seeds $10, sells $4 → Need 3+ yield to profit
-    potato = 7,      -- Seeds $15, sells $7 → Need 3+ yield to profit
-    mushroom = 10,   -- Seeds $20, sells $10 → Need 3+ yield to profit
+    -- FORAGED GOODS (Best early-game income - safe, free, reliable!)
+    berries = 6,      -- Common, good starter income
+    herbs = 8,        -- Uncommon, medicinal value
+    nuts = 5,         -- Rare but nutritious
+    mushroom = 15,    -- Can be foraged OR farmed from spores
     
-    -- FORAGE (MEDIUM value - safe income for exploring)
-    berries = 6,
-    herbs = 8,
-    nuts = 5,
+    -- CROPS (MEDIUM value - farming is viable but not as profitable as fishing/hunting)
+    carrot = 8,      -- Seeds $10, sells $8 → Avg yield 3 = $24 → Net +$14 profit
+    potato = 12,     -- Seeds $15, sells $12 → Avg yield 4 = $48 → Net +$33 profit
     
     -- FISHING (MEDIUM-HIGH value - skill-based income!)
     small_fish = 5,
@@ -74,6 +91,7 @@ shop.buyPrices = {
     --]]
 }
 
+shop.selectedCategory = 1
 shop.selectedItem = 1
 shop.mode = "buy" -- "buy" or "sell"
 shop.scrollOffset = 0 -- For scrolling through long lists
@@ -82,6 +100,8 @@ function shop:enter()
     print("💰 Entering Shop")
     print("📦 Buy seeds and supplies, sell your harvest!")
     shop.scrollOffset = 0 -- Reset scroll on entry
+    shop.selectedCategory = 1
+    shop.selectedItem = 1
 end
 
 function shop:update(dt)
@@ -90,99 +110,268 @@ end
 
 function shop:draw()
     local playerEntity = require("entities/player")
-    
-    -- Draw simple shop interface
     local lg = love.graphics
-    lg.setColor(0.1, 0.1, 0.1, 0.95) -- Dark background
-    lg.rectangle("fill", 50, 50, 860, 440)
     
-    -- Title
-    lg.setColor(0.8, 1, 0.8)
-    lg.print("💰 GENERAL STORE 💰", 60, 70, 0, 1.5, 1.5)
-    lg.setColor(0.8, 0.8, 0.8)
-    lg.print("Buy supplies and sell your harvest", 60, 100)
+    -- ========== BACKGROUND ==========
+    lg.setColor(0.05, 0.05, 0.08, 0.97)
+    lg.rectangle("fill", 0, 0, 960, 600)
     
-    -- Player money (consistent $ formatting)
-    lg.setColor(1, 1, 0.5)
-    lg.print("Your Money: $" .. playerEntity.getMoney(), 60, 130)
+    -- ========== HEADER BAR ==========
+    lg.setColor(0.1, 0.15, 0.2, 1)
+    lg.rectangle("fill", 0, 0, 960, 80)
     
-    -- Mode tabs
-    lg.setColor(shop.mode == "buy" and 0.8 or 0.4, shop.mode == "buy" and 1 or 0.4, shop.mode == "buy" and 0.8 or 0.4)
-    lg.print("[B] BUY", 60, 160)
-    lg.setColor(shop.mode == "sell" and 0.8 or 0.4, shop.mode == "sell" and 1 or 0.4, shop.mode == "sell" and 0.8 or 0.4)
-    lg.print("[V] SELL", 150, 160)
+    -- Title with shadow effect
+    lg.setColor(0, 0, 0, 0.5)
+    lg.print("💰 GENERAL STORE", 22, 17, 0, 2, 2)
+    lg.setColor(1, 0.95, 0.6)
+    lg.print("💰 GENERAL STORE", 20, 15, 0, 2, 2)
+    
+    lg.setColor(0.7, 0.7, 0.7)
+    lg.print("Buy supplies and sell your harvest", 20, 52)
+    
+    -- Player money display (top right)
+    lg.setColor(0.15, 0.2, 0.25, 1)
+    lg.rectangle("fill", 720, 15, 220, 50)
+    lg.setColor(0.3, 0.4, 0.5, 1)
+    lg.rectangle("line", 720, 15, 220, 50)
+    lg.setColor(1, 0.85, 0.2)
+    lg.print("Your Money:", 735, 22, 0, 1.2, 1.2)
+    lg.setColor(0.2, 1, 0.3)
+    lg.print("$" .. playerEntity.getMoney(), 735, 40, 0, 1.5, 1.5)
+    
+    -- ========== MODE TABS ==========
+    local tabY = 90
+    local tabWidth = 150
+    
+    -- Buy Tab
+    local buyTabColor = shop.mode == "buy" and {0.2, 0.6, 0.3} or {0.2, 0.25, 0.3}
+    lg.setColor(buyTabColor[1], buyTabColor[2], buyTabColor[3])
+    lg.rectangle("fill", 20, tabY, tabWidth, 40)
+    lg.setColor(shop.mode == "buy" and 1 or 0.5, shop.mode == "buy" and 1 or 0.5, shop.mode == "buy" and 1 or 0.5)
+    lg.print("[B] BUY", 60, tabY + 10, 0, 1.3, 1.3)
+    
+    -- Sell Tab
+    local sellTabColor = shop.mode == "sell" and {0.6, 0.4, 0.2} or {0.2, 0.25, 0.3}
+    lg.setColor(sellTabColor[1], sellTabColor[2], sellTabColor[3])
+    lg.rectangle("fill", 180, tabY, tabWidth, 40)
+    lg.setColor(shop.mode == "sell" and 1 or 0.5, shop.mode == "sell" and 1 or 0.5, shop.mode == "sell" and 1 or 0.5)
+    lg.print("[V] SELL", 215, tabY + 10, 0, 1.3, 1.3)
+    
+    -- ========== MAIN CONTENT AREA ==========
+    if shop.mode == "buy" then
+        shop:drawBuyMode(lg, playerEntity)
+    else
+        shop:drawSellMode(lg, playerEntity)
+    end
+    
+    -- ========== FOOTER BAR ==========
+    lg.setColor(0.1, 0.15, 0.2, 1)
+    lg.rectangle("fill", 0, 550, 960, 50)
+    lg.setColor(0.9, 0.9, 0.9)
     
     if shop.mode == "buy" then
-        -- Show items for sale
-        lg.setColor(1, 1, 1)
-        lg.print("Items for Sale (Use UP/DOWN, ENTER to buy):", 60, 190)
+        lg.print("🎮 [A/D] Switch Category  |  [W/S] Select Item  |  [E/ENTER] Buy  |  [ESC] Exit", 20, 563)
+    else
+        lg.print("🎮 [1-9] Sell Item  |  [L] Liquidate All  |  [ESC] Exit", 20, 563)
+    end
+    
+    lg.setColor(1, 1, 1)
+end
+
+-- ========== BUY MODE UI ==========
+function shop:drawBuyMode(lg, playerEntity)
+    local contentY = 145
+    
+    -- Category Navigation Bar
+    lg.setColor(0.15, 0.2, 0.25, 0.8)
+    lg.rectangle("fill", 20, contentY, 920, 50)
+    
+    local catX = 30
+    for i, category in ipairs(shop.categories) do
+        local isSelected = (i == shop.selectedCategory)
         
-        -- Scrolling viewport: show max 8 items at a time
-        local maxVisibleItems = 8
-        local startIndex = shop.scrollOffset + 1
-        local endIndex = math.min(startIndex + maxVisibleItems - 1, #shop.items)
-        
-        for i = startIndex, endIndex do
-            local item = shop.items[i]
-            local y = 220 + (i - startIndex) * 25
-            local color = i == shop.selectedItem and {1, 1, 0.5} or {0.8, 0.8, 0.8}
-            lg.setColor(color[1], color[2], color[3])
-            
-            local canAfford = playerEntity.getMoney() >= item.price
-            local affordText = canAfford and "" or " (TOO EXPENSIVE!)"
-            
-            lg.print(string.format("%s - $%d%s", item.name, item.price, affordText), 80, y)
-            lg.setColor(0.6, 0.6, 0.6)
-            lg.print(item.description, 300, y)
+        -- Category button background
+        if isSelected then
+            lg.setColor(category.color[1], category.color[2], category.color[3], 0.3)
+            lg.rectangle("fill", catX - 5, contentY + 5, 200, 40, 8, 8)
         end
         
-        -- Scroll indicators
-        if shop.scrollOffset > 0 then
-            lg.setColor(1, 1, 0.5)
-            lg.print("▲ More items above", 80, 420)
+        -- Category text
+        local textColor = isSelected and 1 or 0.5
+        lg.setColor(category.color[1] * textColor, category.color[2] * textColor, category.color[3] * textColor)
+        lg.print(category.name, catX, contentY + 12, 0, 1.1, 1.1)
+        
+        catX = catX + 230
+    end
+    
+    -- Items in selected category
+    local itemsY = contentY + 70
+    local currentCategory = shop.categories[shop.selectedCategory]
+    
+    lg.setColor(currentCategory.color[1], currentCategory.color[2], currentCategory.color[3])
+    lg.print("▼ " .. currentCategory.name, 40, itemsY, 0, 1.3, 1.3)
+    
+    itemsY = itemsY + 35
+    
+    -- Calculate global item index offset
+    local globalOffset = 0
+    for i = 1, shop.selectedCategory - 1 do
+        globalOffset = globalOffset + #shop.categories[i].items
+    end
+    
+    -- Draw items
+    for i, item in ipairs(currentCategory.items) do
+        local globalIndex = globalOffset + i
+        local isSelected = (globalIndex == shop.selectedItem)
+        local y = itemsY + (i - 1) * 65
+        
+        -- Item card background
+        if isSelected then
+            lg.setColor(0.25, 0.35, 0.45, 0.9)
+            lg.rectangle("fill", 40, y - 5, 880, 60, 5, 5)
+            lg.setColor(currentCategory.color[1], currentCategory.color[2], currentCategory.color[3], 0.8)
+            lg.rectangle("line", 40, y - 5, 880, 60, 5, 5)
+            lg.setLineWidth(3)
+            lg.rectangle("line", 40, y - 5, 880, 60, 5, 5)
+            lg.setLineWidth(1)
+        else
+            lg.setColor(0.15, 0.2, 0.25, 0.6)
+            lg.rectangle("fill", 40, y - 5, 880, 60, 5, 5)
         end
-        if endIndex < #shop.items then
-            lg.setColor(1, 1, 0.5)
-            lg.print("▼ More items below", 300, 420)
+        
+        -- Item name
+        local nameColor = isSelected and 1 or 0.8
+        lg.setColor(nameColor, nameColor, nameColor)
+        lg.print(item.name, 60, y + 5, 0, 1.2, 1.2)
+        
+        -- Item description
+        lg.setColor(0.6, 0.6, 0.6)
+        lg.print(item.description, 60, y + 28)
+        
+        -- Price tag
+        local canAfford = playerEntity.getMoney() >= item.price
+        local priceX = 820
+        
+        if canAfford then
+            lg.setColor(0.2, 0.8, 0.3, 0.8)
+            lg.rectangle("fill", priceX - 10, y, 100, 35, 5, 5)
+            lg.setColor(1, 1, 1)
+            lg.print("$" .. item.price, priceX, y + 8, 0, 1.3, 1.3)
+        else
+            lg.setColor(0.8, 0.2, 0.2, 0.8)
+            lg.rectangle("fill", priceX - 10, y, 100, 35, 5, 5)
+            lg.setColor(1, 1, 1)
+            lg.print("$" .. item.price, priceX, y + 3, 0, 1.2, 1.2)
+            lg.setColor(1, 0.4, 0.4)
+            lg.print("TOO PRICEY", priceX + 10, y + 20, 0, 0.7, 0.7)
         end
+    end
+end
+
+-- ========== SELL MODE UI ==========
+function shop:drawSellMode(lg, playerEntity)
+    local contentY = 145
+    
+    lg.setColor(1, 0.95, 0.7)
+    lg.print("YOUR INVENTORY - Choose items to sell:", 40, contentY, 0, 1.4, 1.4)
+    
+    local y = contentY + 40
+    local itemIndex = 1
+    shop.sellableItems = {} -- Track what can be sold
+    
+    -- ORGANIZE BY CATEGORY for better readability
+    local sellCategories = {
+        {name = "🌿 FORAGED GOODS", icon = "🌿", items = {"berries", "herbs", "nuts", "mushroom"}, color = {0.4, 0.9, 0.5}},
+        {name = "🌾 CROPS", icon = "🌾", items = {"carrot", "potato"}, color = {0.9, 0.8, 0.3}},
+        {name = "🐟 FISH & AQUATIC", icon = "🐟", items = {"small_fish", "bass", "catfish", "rare_trout", "snake_skin"}, color = {0.4, 0.7, 1}},
+        {name = "🥩 HUNTING GOODS", icon = "🥩", items = {"rabbit_meat", "deer_meat", "boar_meat", "tiger_meat"}, color = {1, 0.5, 0.3}}
+    }
+    
+    local hasAnyItems = false
+    
+    for _, category in ipairs(sellCategories) do
+        local categoryHasItems = false
         
-    else -- sell mode
-        lg.setColor(1, 1, 0.8)
-        lg.print("YOUR ITEMS - Press number to sell:", 60, 190)
-        
-        local y = 220
-        local itemIndex = 1
-        shop.sellableItems = {} -- Track what can be sold
-        
-        for itemType, price in pairs(shop.buyPrices) do
+        -- Check if category has any items first
+        for _, itemType in ipairs(category.items) do
             local count = playerEntity.getItemCount(itemType) or 0
             if count > 0 then
-                lg.setColor(0.2, 1, 0.3)
-                lg.print(string.format("[%d] %s x%d", itemIndex, itemType, count), 80, y)
-                lg.setColor(1, 1, 0.5)
-                lg.print(string.format("→ $%d each ($%d total)", price, price * count), 320, y)
-                shop.sellableItems[itemIndex] = {type = itemType, count = count, price = price}
-                itemIndex = itemIndex + 1
-                y = y + 25
+                categoryHasItems = true
+                break
             end
         end
         
-        if y == 220 then
-            lg.setColor(0.6, 0.6, 0.6)
-            lg.print("No items to sell - go farm or hunt!", 80, y)
-        else
-            lg.setColor(1, 0.8, 0.2)
-            lg.print("[L] Liquidate (Sell ALL items at once)", 80, y + 20)
+        -- Draw category header if it has items
+        if categoryHasItems then
+            lg.setColor(0.2, 0.25, 0.3, 0.9)
+            lg.rectangle("fill", 30, y, 900, 30, 5, 5)
+            lg.setColor(category.color[1], category.color[2], category.color[3])
+            lg.print(category.name, 45, y + 6, 0, 1.3, 1.3)
+            y = y + 40
+            hasAnyItems = true
+            
+            -- Draw items in this category
+            for _, itemType in ipairs(category.items) do
+                local count = playerEntity.getItemCount(itemType) or 0
+                if count > 0 then
+                    local price = shop.buyPrices[itemType]
+                    
+                    -- Item card
+                    lg.setColor(0.15, 0.2, 0.25, 0.7)
+                    lg.rectangle("fill", 50, y, 860, 40, 5, 5)
+                    
+                    -- Hotkey badge
+                    lg.setColor(0.3, 0.5, 0.7, 1)
+                    lg.rectangle("fill", 60, y + 5, 30, 30, 5, 5)
+                    lg.setColor(1, 1, 1)
+                    lg.print(tostring(itemIndex), 70, y + 10, 0, 1.2, 1.2)
+                    
+                    -- Item name and quantity
+                    lg.setColor(0.2, 1, 0.4)
+                    lg.print(string.format("%s", itemType), 110, y + 5, 0, 1.2, 1.2)
+                    lg.setColor(0.9, 0.9, 0.9)
+                    lg.print(string.format("x%d", count), 110, y + 20, 0, 0.9, 0.9)
+                    
+                    -- Price per unit
+                    lg.setColor(1, 0.9, 0.5)
+                    lg.print(string.format("$%d each", price), 400, y + 12, 0, 1.1, 1.1)
+                    
+                    -- Total value
+                    local totalValue = price * count
+                    lg.setColor(0.2, 0.8, 0.3, 0.9)
+                    lg.rectangle("fill", 750, y + 5, 140, 30, 5, 5)
+                    lg.setColor(1, 1, 1)
+                    lg.print(string.format("= $%d", totalValue), 765, y + 10, 0, 1.2, 1.2)
+                    
+                    shop.sellableItems[itemIndex] = {type = itemType, count = count, price = price}
+                    itemIndex = itemIndex + 1
+                    y = y + 48
+                end
+            end
+            
+            y = y + 5 -- Spacing between categories
         end
     end
     
-    -- Instructions
-    lg.setColor(1, 1, 1)
-    lg.rectangle("fill", 50, 440, 860, 40)
-    lg.setColor(0.1, 0.1, 0.1)
-    lg.print("BUY: [UP]/[DOWN] select, [ENTER] buy  |  SELL: Press [1-9] or [A]ll  |  [ESC] exit", 60, 455)
-    
-    lg.setColor(1, 1, 1) -- Reset color
+    if not hasAnyItems then
+        lg.setColor(0.15, 0.2, 0.25, 0.8)
+        lg.rectangle("fill", 200, 280, 560, 80, 10, 10)
+        lg.setColor(0.6, 0.6, 0.6)
+        lg.print("📦 Your inventory is empty!", 260, 295, 0, 1.5, 1.5)
+        lg.setColor(0.5, 0.5, 0.5)
+        lg.print("Go forage, farm, fish, or hunt to gather sellable items!", 230, 325)
+    else
+        -- Liquidate button
+        lg.setColor(0.7, 0.3, 0.1, 0.9)
+        lg.rectangle("fill", 350, y + 10, 260, 45, 8, 8)
+        lg.setColor(1, 0.8, 0.2, 1)
+        lg.rectangle("line", 350, y + 10, 260, 45, 8, 8)
+        lg.setLineWidth(2)
+        lg.rectangle("line", 350, y + 10, 260, 45, 8, 8)
+        lg.setLineWidth(1)
+        lg.setColor(1, 1, 1)
+        lg.print("🔥 [L] LIQUIDATE ALL 🔥", 370, y + 20, 0, 1.2, 1.2)
+    end
 end
 
 function shop:keypressed(key)
@@ -195,26 +384,59 @@ function shop:keypressed(key)
         
     elseif key == "b" then
         shop.mode = "buy"
+        shop.selectedCategory = 1
         shop.selectedItem = 1
         
     elseif key == "v" then
         shop.mode = "sell"
         
     elseif shop.mode == "buy" then
-        if key == "up" then
-            shop.selectedItem = math.max(1, shop.selectedItem - 1)
-            -- Auto-scroll when selection goes above visible area
-            if shop.selectedItem <= shop.scrollOffset then
-                shop.scrollOffset = math.max(0, shop.selectedItem - 1)
+        -- WASD CONTROLS for buy mode
+        if key == "a" then
+            -- Switch to previous category
+            shop.selectedCategory = math.max(1, shop.selectedCategory - 1)
+            -- Update selected item to first item in new category
+            local offset = 0
+            for i = 1, shop.selectedCategory - 1 do
+                offset = offset + #shop.categories[i].items
             end
-        elseif key == "down" then
-            shop.selectedItem = math.min(#shop.items, shop.selectedItem + 1)
-            -- Auto-scroll when selection goes below visible area
-            local maxVisibleItems = 8
-            if shop.selectedItem > shop.scrollOffset + maxVisibleItems then
-                shop.scrollOffset = shop.selectedItem - maxVisibleItems
+            shop.selectedItem = offset + 1
+            
+        elseif key == "d" then
+            -- Switch to next category
+            shop.selectedCategory = math.min(#shop.categories, shop.selectedCategory + 1)
+            -- Update selected item to first item in new category
+            local offset = 0
+            for i = 1, shop.selectedCategory - 1 do
+                offset = offset + #shop.categories[i].items
             end
-        elseif key == "return" or key == "space" then
+            shop.selectedItem = offset + 1
+            
+        elseif key == "w" then
+            -- Move up in current category (NO WRAPPING TO OTHER CATEGORIES)
+            local offset = 0
+            for i = 1, shop.selectedCategory - 1 do
+                offset = offset + #shop.categories[i].items
+            end
+            local minItem = offset + 1
+            
+            if shop.selectedItem > minItem then
+                shop.selectedItem = shop.selectedItem - 1
+            end
+            
+        elseif key == "s" then
+            -- Move down in current category (NO WRAPPING TO OTHER CATEGORIES)
+            local offset = 0
+            for i = 1, shop.selectedCategory - 1 do
+                offset = offset + #shop.categories[i].items
+            end
+            local maxItem = offset + #shop.categories[shop.selectedCategory].items
+            
+            if shop.selectedItem < maxItem then
+                shop.selectedItem = shop.selectedItem + 1
+            end
+            
+        elseif key == "return" or key == "space" or key == "e" then
             shop:buyItem()
         end
         
@@ -234,6 +456,12 @@ end
 function shop:buyItem()
     local playerEntity = require("entities/player")
     local item = shop.items[shop.selectedItem]
+    
+    if not item then
+        print("❌ ERROR: No item at index " .. shop.selectedItem)
+        return
+    end
+    
     local money = playerEntity.getMoney()
     
     if money >= item.price then

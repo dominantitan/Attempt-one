@@ -54,11 +54,11 @@ farming.cropTypes = {
     }
 }
 
--- Farming plots in 2x3 grid
-farming.plotSize = 32
-farming.plotSpacing = 8
-farming.farmX = 575  -- Match world.lua farm structure at (565, 325)
-farming.farmY = 335
+-- Farming plots in 2x3 grid (scaled 3x for expanded world)
+farming.plotSize = 96    -- Was 32
+farming.plotSpacing = 24 -- Was 8
+farming.farmX = 1725     -- Was 575 (match world.lua farm structure at 1695, 975)
+farming.farmY = 1005     -- Was 335
 farming.plots = {}
 
 function farming.load()
@@ -313,9 +313,9 @@ function farming.draw()
                 love.graphics.rectangle("fill", x, statusY, farming.plotSize, 3)
             end
         else
-            -- Empty plot - no visual indicator
+            -- Empty plot - no visual indicator (scaled 3x)
             love.graphics.setColor(0.5, 0.5, 0.5, 0.3)
-            love.graphics.circle("line", x + farming.plotSize/2, y + farming.plotSize/2, 8)
+            love.graphics.circle("line", x + farming.plotSize/2, y + farming.plotSize/2, 24) -- Was 8
         end
     end
     
@@ -344,7 +344,9 @@ function farming.draw()
     
     -- Disease indicator
     if plot.diseased then
-        love.graphics.print("🦠", x + farming.plotSize - 15, y + 2)
+        -- Draw disease indicator (scaled 3x)
+        love.graphics.setColor(0.7, 0, 0)
+        love.graphics.print("🦠", x + farming.plotSize - 45, y + 6) -- Scaled 3x (was -15, 2)
     end
     
     -- Pest damage indicator
@@ -355,11 +357,11 @@ function farming.draw()
 end
 
 function farming.getPlotAt(x, y)
-    -- Find which plot the player is standing at (with more lenient detection)
+    -- Find which plot the player is standing at (with more lenient detection - scaled 3x)
     for i, plot in ipairs(farming.plots) do
-        -- Add 10 pixel buffer for easier interaction
-        if x >= plot.x - 10 and x <= plot.x + farming.plotSize + 10 and 
-           y >= plot.y - 10 and y <= plot.y + farming.plotSize + 10 then
+        -- Add 30 pixel buffer for easier interaction (was 10)
+        if x >= plot.x - 30 and x <= plot.x + farming.plotSize + 30 and 
+           y >= plot.y - 30 and y <= plot.y + farming.plotSize + 30 then
             return i, plot
         end
     end
