@@ -28,6 +28,19 @@ fishing.spearShadowOffset = 0  -- Shadow offset based on height
 fishing.throwCooldown = 0  -- Prevent multi-throw glitch
 fishing.throwCooldownTime = 0.3  -- Minimum time between throws
 
+-- Power Bar System (Stardew Valley style)
+fishing.powerBar = {
+    charging = false,         -- Is player holding mouse button?
+    power = 0,                -- Current power level (0 to 1)
+    chargeSpeed = 1.5,        -- How fast the bar fills (full charge in ~0.67 seconds)
+    minPower = 0.2,           -- Minimum throw power (20%)
+    maxPower = 1.0,           -- Maximum throw power (100%)
+    x = 750,                  -- Bar position X (right side of screen)
+    y = 200,                  -- Bar position Y
+    width = 30,               -- Bar width
+    height = 200,             -- Bar height (vertical)
+}
+
 -- Small visual fish (boids)
 fishing.boidFish = {}
 fishing.boidCount = 30  -- Number of small visual fish
@@ -81,6 +94,10 @@ function fishing:enter(fromState, areaId)
     fishing.stuckSpear = nil
     fishing.retrievalClicks = 0
     fishing.throwCooldown = 0
+    
+    -- Reset power bar
+    fishing.powerBar.charging = false
+    fishing.powerBar.power = 0
     
     -- Spawn small boid fish for visual effect
     fishing.boidFish = {}
@@ -177,6 +194,15 @@ function fishing:update(dt)
     
     fishing.timeInSession = fishing.timeInSession + dt
     fishing.mouseX, fishing.mouseY = love.mouse.getPosition()
+    
+    -- Update Power Bar charging
+    if fishing.powerBar.charging and not fishing.spearStuck then
+        fishing.powerBar.power = fishing.powerBar.power + (fishing.powerBar.chargeSpeed * dt)
+        -- Clamp power to max
+        if fishing.powerBar.power > fishing.powerBar.maxPower then
+            fishing.powerBar.power = fishing.powerBar.maxPower
+        end
+    end
     
     -- Update throw cooldown
     if fishing.throwCooldown > 0 then
@@ -642,7 +668,7 @@ function fishing:snakeBitePlayer()
     gamestate.switch("death", "snake")
 end
 
-function fishing:throwSpear()
+function fishing:throwSpear(power)
     -- Can't throw if spear is stuck
     if fishing.spearStuck then
         print("🎣 Spear is stuck! Right-click to retrieve it!")
@@ -653,6 +679,9 @@ function fishing:throwSpear()
     if fishing.throwCooldown > 0 then
         return
     end
+    
+    -- Default to full power if not specified
+    power = power or 1.0
     
     -- Set cooldown
     fishing.throwCooldown = fishing.throwCooldownTime
@@ -666,15 +695,28 @@ function fishing:throwSpear()
     local dy = fishing.mouseY - spearStartY
     local distance = math.sqrt(dx * dx + dy * dy)
     
-    -- Calculate flight time based on distance (longer throws take more time)
-    local flightTime = math.max(0.5, math.min(1.5, distance / 400))
+    -- Apply power to distance - more power = spear goes further/faster
+    -- Scale the effective distance by power (20% to 100% of intended distance)
+    local effectiveDistance = distance * power
+    local actualTargetX = spearStartX + (dx * power)
+    local actualTargetY = spearStartY + (dy * power)
     
-    -- Calculate velocity needed to reach target in flightTime
-    local vx = dx / flightTime
-    local vy = dy / flightTime
+    -- Calculate flight time based on power (more power = faster throw)
+    -- Higher power = shorter flight time = faster spear
+    local baseFlightTime = math.max(0.5, math.min(1.5, effectiveDistance / 400))
+    -- At 20% power: flightTime = base * 2.0 (slow)
+    -- At 100% power: flightTime = base * 0.4 (fast, 2.5x faster than low power)
+    local speedMultiplier = 2.0 - (power * 1.6)  -- 2.0 at min power, 0.4 at max power
+    local flightTime = baseFlightTime * speedMultiplier
     
-    -- Arc height calculation: higher throws for longer distances
-    local arcHeight = 150 + (distance * 0.2) -- Scale height with distance
+    -- Calculate velocity needed to reach actual target in flightTime
+    local adjustedDx = actualTargetX - spearStartX
+    local adjustedDy = actualTargetY - spearStartY
+    local vx = adjustedDx / flightTime
+    local vy = adjustedDy / flightTime
+    
+    -- Arc height calculation: higher power = higher arc
+    local arcHeight = (100 + (effectiveDistance * 0.2)) * power
     
     -- 3D spear throw: starts at player hand height, arcs through air to target point
     table.insert(fishing.projectiles, {
@@ -682,8 +724,8 @@ function fishing:throwSpear()
         y = spearStartY,
         startX = spearStartX,
         startY = spearStartY,
-        targetX = fishing.mouseX,
-        targetY = fishing.mouseY,
+        targetX = actualTargetX,  -- Use power-adjusted target
+        targetY = actualTargetY,  -- Use power-adjusted target
         vx = vx,
         vy = vy,
         lifetime = flightTime,
@@ -698,7 +740,7 @@ function fishing:throwSpear()
         landed = false
     })
     
-    print("🎯 Spear launched! Flight time: " .. string.format("%.2f", flightTime) .. "s, Arc height: " .. math.floor(arcHeight))
+    print("🎯 Spear launched! Power: " .. math.floor(power * 100) .. "%, Flight time: " .. string.format("%.2f", flightTime) .. "s, Arc height: " .. math.floor(arcHeight))
 end
 
 function fishing:catchFish(fish, index)
@@ -960,6 +1002,38 @@ function fishing:draw()
     love.graphics.print("⏱ Time: " .. string.format("%.1f", fishing.timeInSession), 200, 10)
     love.graphics.print("🎣 " .. (fishing.hasNet and "Net" or "Spear"), 400, 10)
     
+    -- Draw Power Bar (Stardew Valley style - vertical green bar with brown outline)
+    local bar = fishing.powerBar
+    if not fishing.spearStuck then
+        -- Brown outline (darker border)
+        love.graphics.setColor(0.4, 0.25, 0.1) -- Dark brown
+        love.graphics.rectangle("fill", bar.x - 2, bar.y - 2, bar.width + 4, bar.height + 4)
+        
+        -- Black background (empty bar)
+        love.graphics.setColor(0.1, 0.1, 0.1)
+        love.graphics.rectangle("fill", bar.x, bar.y, bar.width, bar.height)
+        
+        -- Green fill (power level) - fills from bottom to top
+        if bar.power > 0 then
+            local fillHeight = bar.height * bar.power
+            local fillY = bar.y + bar.height - fillHeight
+            
+            -- Gradient effect: darker at bottom, brighter at top
+            love.graphics.setColor(0.2, 0.8, 0.2) -- Bright green
+            love.graphics.rectangle("fill", bar.x, fillY, bar.width, fillHeight)
+        end
+        
+        -- Power bar label
+        if bar.charging then
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.print("POWER", bar.x - 10, bar.y - 25)
+            love.graphics.print(math.floor(bar.power * 100) .. "%", bar.x - 5, bar.y + bar.height + 5)
+        else
+            love.graphics.setColor(0.7, 0.7, 0.7)
+            love.graphics.print("Hold to\n charge", bar.x - 15, bar.y + bar.height / 2 - 10)
+        end
+    end
+    
     -- Bottom UI bar
     love.graphics.setColor(0, 0, 0, 0.7)
     love.graphics.rectangle("fill", 0, 560, 800, 40)
@@ -991,8 +1065,10 @@ function fishing:draw()
 end
 
 function fishing:mousepressed(x, y, button)
-    if button == 1 and fishing.active then
-        fishing:throwSpear()
+    if button == 1 and fishing.active and not fishing.spearStuck then
+        -- Start charging the power bar
+        fishing.powerBar.charging = true
+        fishing.powerBar.power = fishing.powerBar.minPower -- Start at minimum power
     elseif button == 2 and fishing.active and fishing.spearStuck then
         -- Right-click to retrieve stuck spear
         fishing.retrievalClicks = fishing.retrievalClicks + 1
@@ -1009,6 +1085,15 @@ function fishing:mousepressed(x, y, button)
             fishing.retrievalClicks = 0
             print("✅ Spear retrieved! You can throw again!")
         end
+    end
+end
+
+function fishing:mousereleased(x, y, button)
+    if button == 1 and fishing.active and fishing.powerBar.charging then
+        -- Release the spear with current power level
+        fishing.powerBar.charging = false
+        fishing:throwSpear(fishing.powerBar.power)
+        fishing.powerBar.power = 0 -- Reset power after throw
     end
 end
 
